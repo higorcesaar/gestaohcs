@@ -14,6 +14,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedRelatoriosConsolidadosRouteImport } from './routes/_authenticated/relatorios-consolidados'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedLancamentosRouteImport } from './routes/_authenticated/lancamentos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
@@ -42,6 +45,22 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedRelatoriosConsolidadosRoute =
+  AuthenticatedRelatoriosConsolidadosRouteImport.update({
+    id: '/relatorios-consolidados',
+    path: '/relatorios-consolidados',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedMetasRoute = AuthenticatedMetasRouteImport.update({
+  id: '/metas',
+  path: '/metas',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedLancamentosRoute =
   AuthenticatedLancamentosRouteImport.update({
     id: '/lancamentos',
@@ -66,6 +85,9 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
+  '/metas': typeof AuthenticatedMetasRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/relatorios-consolidados': typeof AuthenticatedRelatoriosConsolidadosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -75,6 +97,9 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
+  '/metas': typeof AuthenticatedMetasRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/relatorios-consolidados': typeof AuthenticatedRelatoriosConsolidadosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -86,6 +111,9 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/lancamentos': typeof AuthenticatedLancamentosRoute
+  '/_authenticated/metas': typeof AuthenticatedMetasRoute
+  '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/relatorios-consolidados': typeof AuthenticatedRelatoriosConsolidadosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -97,6 +125,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/dashboard'
     | '/lancamentos'
+    | '/metas'
+    | '/relatorios'
+    | '/relatorios-consolidados'
     | '/usuarios'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -106,6 +137,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/dashboard'
     | '/lancamentos'
+    | '/metas'
+    | '/relatorios'
+    | '/relatorios-consolidados'
     | '/usuarios'
     | '/api/public/telegram/webhook'
   id:
@@ -116,6 +150,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/dashboard'
     | '/_authenticated/lancamentos'
+    | '/_authenticated/metas'
+    | '/_authenticated/relatorios'
+    | '/_authenticated/relatorios-consolidados'
     | '/_authenticated/usuarios'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -165,6 +202,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/relatorios-consolidados': {
+      id: '/_authenticated/relatorios-consolidados'
+      path: '/relatorios-consolidados'
+      fullPath: '/relatorios-consolidados'
+      preLoaderRoute: typeof AuthenticatedRelatoriosConsolidadosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/metas': {
+      id: '/_authenticated/metas'
+      path: '/metas'
+      fullPath: '/metas'
+      preLoaderRoute: typeof AuthenticatedMetasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/lancamentos': {
       id: '/_authenticated/lancamentos'
       path: '/lancamentos'
@@ -192,12 +250,19 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLancamentosRoute: typeof AuthenticatedLancamentosRoute
+  AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
+  AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedRelatoriosConsolidadosRoute: typeof AuthenticatedRelatoriosConsolidadosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLancamentosRoute: AuthenticatedLancamentosRoute,
+  AuthenticatedMetasRoute: AuthenticatedMetasRoute,
+  AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedRelatoriosConsolidadosRoute:
+    AuthenticatedRelatoriosConsolidadosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
 }
 
