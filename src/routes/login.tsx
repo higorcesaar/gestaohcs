@@ -59,40 +59,42 @@ function LoginPage() {
       </div>
 
       <div className="flex items-center justify-center p-8">
-        <form onSubmit={onSubmit} className="w-full max-w-sm space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-semibold">Entrar</h2>
-            <p className="text-sm text-muted-foreground">
-              Use seu e-mail autorizado e senha.
-            </p>
-          </div>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email" type="email" required
-                value={email} onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
+        <div className="w-full max-w-sm space-y-6">
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold">Entrar</h2>
+              <p className="text-sm text-muted-foreground">
+                Use seu e-mail autorizado e senha.
+              </p>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password" type="password" required
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email" type="email" required
+                  value={email} onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password" type="password" required
+                  value={password} onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
             </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Entrando…" : "Entrar"}
-          </Button>
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Entrando…" : "Entrar"}
+            </Button>
+          </form>
           <p className="text-xs text-muted-foreground text-center">
-            Primeira vez? Cadastre-se com o e-mail liberado pelo administrador
-            usando o link abaixo.
+            Esqueceu a senha? Use "Redefinir senha" abaixo.
           </p>
           <SignupHint />
-        </form>
+          <ResetPassword />
+        </div>
       </div>
     </div>
   );
