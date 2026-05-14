@@ -26,11 +26,7 @@ export const CATEGORIES_RECEITA = ["Salário", "Freelance", "Rendimento", "Outro
 
 export const TITULARES = ["Mirelly", "Higor"];
 
-export const PAYMENT_METHODS = [
-  "PIX", "Crédito Inter", "Crédito Nubank", "Crédito XP", "Crédito Neon",
-  "Crédito Bradesco", "Crédito Caixa", "Crédito Mercado Pago", "Crédito Santander",
-  "Dinheiro", "Boleto", "Débito", "Transferência",
-];
+export const PAYMENT_METHODS = ["PIX", "Dinheiro", "Débito", "Crédito"];
 
 export const BANKS = [
   "NUBANK", "INTER", "XP", "NEON", "BRADESCO", "CAIXA", "MERCADO PAGO",

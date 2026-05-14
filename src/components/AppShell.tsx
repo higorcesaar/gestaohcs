@@ -1,5 +1,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LogOut, LayoutDashboard, Receipt, Users, Wallet } from "lucide-react";
+import {
+  LogOut, LayoutDashboard, Receipt, Users, Wallet, Target,
+  BarChart3, FileBarChart,
+} from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -14,23 +17,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ...(role === "admin"
       ? [{ to: "/usuarios", label: "Usuários", icon: Users }]
       : []),
+    { to: "/metas", label: "Metas", icon: Target },
+    { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
+    { to: "/relatorios-consolidados", label: "Relatórios Consolidados", icon: FileBarChart },
   ];
 
   return (
     <div className="min-h-screen flex bg-background">
       <aside className="w-64 border-r border-sidebar-border bg-sidebar flex flex-col">
-        <div className="px-6 py-6 flex items-center gap-2">
-          <div className="size-9 rounded-lg bg-primary text-primary-foreground grid place-items-center">
+        <div className="px-5 py-5 flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center shadow-sm">
             <Wallet className="size-5" />
           </div>
-          <div>
-            <div className="font-semibold text-sidebar-foreground">Cesar Finanças</div>
-            <div className="text-xs text-muted-foreground">Controle 2026</div>
+          <div className="min-w-0">
+            <div className="font-semibold text-sidebar-foreground leading-tight">Cesar Finanças</div>
+            <div className="text-[11px] text-muted-foreground leading-tight">Controle Financeiro Profissional</div>
           </div>
         </div>
         <nav className="flex-1 px-3 space-y-1">
           {nav.map((n) => {
-            const active = path.startsWith(n.to);
+            const active = path === n.to || path.startsWith(n.to + "/");
             return (
               <Link
                 key={n.to}
@@ -63,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 overflow-auto">
-        <div className="max-w-6xl mx-auto px-8 py-8">{children}</div>
+        <div className="max-w-7xl mx-auto px-8 py-8">{children}</div>
       </main>
     </div>
   );
