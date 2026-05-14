@@ -53,8 +53,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Almeida Finanças — Controle 2026" },
-      { name: "description", content: "Controle financeiro pessoal — Almeida Finanças" },
+      { title: "Cesar Finanças — Controle 2026" },
+      { name: "description", content: "Controle financeiro pessoal — Cesar Finanças" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),

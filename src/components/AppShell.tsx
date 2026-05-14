@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Wallet className="size-5" />
           </div>
           <div>
-            <div className="font-semibold text-sidebar-foreground">Almeida Finanças</div>
+            <div className="font-semibold text-sidebar-foreground">Cesar Finanças</div>
             <div className="text-xs text-muted-foreground">Controle 2026</div>
           </div>
         </div>

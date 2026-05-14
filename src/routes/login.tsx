@@ -40,7 +40,7 @@ function LoginPage() {
             <Wallet className="size-5" />
           </div>
           <div>
-            <div className="font-semibold text-lg">Almeida Finanças</div>
+            <div className="font-semibold text-lg">Cesar Finanças</div>
             <div className="text-sm text-muted-foreground">Controle financeiro 2026</div>
           </div>
         </div>
