@@ -154,3 +154,49 @@ function SignupHint() {
     </form>
   );
 }
+
+function ResetPassword() {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function doReset(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setSubmitting(false);
+    if (error) {
+      toast.error("Erro ao enviar reset", { description: error.message });
+      return;
+    }
+    toast.success("Se o e-mail existir, enviaremos um link.");
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-muted-foreground underline w-full text-center"
+      >
+        Redefinir senha
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={doReset} className="space-y-3 border-t pt-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="reset-email">E-mail</Label>
+        <Input id="reset-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <Button type="submit" variant="outline" className="w-full" disabled={submitting}>
+        {submitting ? "Enviando…" : "Enviar link de redefinição"}
+      </Button>
+    </form>
+  );
+}
