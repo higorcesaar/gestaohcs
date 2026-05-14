@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           from_username: from?.username ?? null,
           from_name: fromName,
           text,
-          raw_update: update,
+          raw_update: update as never,
         }, { onConflict: "update_id" });
 
         const ok = await forwardToOwner(token, ownerChatId, {
