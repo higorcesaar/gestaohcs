@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, timingSafeEqual } from "crypto";
+import type { Database } from "@/integrations/supabase/types";
 
 function deriveSecret(token: string) {
   return createHash("sha256").update(`telegram-webhook:${token}`).digest("base64url");
@@ -12,10 +13,10 @@ function safeEqual(a: string, b: string) {
   return A.length === B.length && timingSafeEqual(A, B);
 }
 
-let _admin: ReturnType<typeof createClient> | null = null;
+let _admin: ReturnType<typeof createClient<Database>> | null = null;
 function getAdmin() {
   if (!_admin) {
-    _admin = createClient(
+    _admin = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } }
