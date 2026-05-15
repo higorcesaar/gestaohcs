@@ -412,7 +412,107 @@ function Dashboard() {
         transactions={tx}
         monthLabel={monthLabel}
       />
+
+      <CardDetailDialog
+        cardId={detailCardId}
+        onClose={() => setDetailCardId(null)}
+        transactions={tx}
+        cards={cards}
+        monthLabel={monthLabel}
+      />
     </div>
+  );
+}
+
+const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
+  NUBANK: { gradient: "linear-gradient(135deg, #8a05be 0%, #5b0091 100%)", border: "#8a05be" },
+  INTER: { gradient: "linear-gradient(135deg, #ff7a00 0%, #cc5800 100%)", border: "#ff7a00" },
+  ITAU: { gradient: "linear-gradient(135deg, #ec7000 0%, #003399 100%)", border: "#ec7000" },
+  BRADESCO: { gradient: "linear-gradient(135deg, #cc092f 0%, #8a0620 100%)", border: "#cc092f" },
+  SANTANDER: { gradient: "linear-gradient(135deg, #ec0000 0%, #a40000 100%)", border: "#ec0000" },
+  CAIXA: { gradient: "linear-gradient(135deg, #0070af 0%, #f39200 100%)", border: "#0070af" },
+  "BANCO DO BRASIL": { gradient: "linear-gradient(135deg, #fae100 0%, #002d72 100%)", border: "#002d72" },
+  BB: { gradient: "linear-gradient(135deg, #fae100 0%, #002d72 100%)", border: "#002d72" },
+  C6: { gradient: "linear-gradient(135deg, #2c2c2c 0%, #000000 100%)", border: "#2c2c2c" },
+  XP: { gradient: "linear-gradient(135deg, #1e1e1e 0%, #f1c700 100%)", border: "#f1c700" },
+  PICPAY: { gradient: "linear-gradient(135deg, #21c25e 0%, #0e8a3e 100%)", border: "#21c25e" },
+  DEFAULT: { gradient: "linear-gradient(135deg, oklch(0.45 0.08 250) 0%, oklch(0.3 0.06 250) 100%)", border: "oklch(0.45 0.08 250)" },
+};
+
+function CardDetailDialog({
+  cardId, onClose, transactions, cards, monthLabel,
+}: {
+  cardId: string | null;
+  onClose: () => void;
+  transactions: Tx[];
+  cards: CardRow[];
+  monthLabel: string;
+}) {
+  const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
+  const items = useMemo(
+    () => cardId ? transactions.filter((t) => t.payment_method === "Crédito" && t.card_id === cardId) : [],
+    [transactions, cardId],
+  );
+  const total = items.reduce((s, t) => s + Number(t.amount), 0);
+  const brand = card ? (BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT) : null;
+
+  return (
+    <Dialog open={!!cardId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        {card && brand && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Fatura {card.name} · <span className="capitalize">{monthLabel}</span></DialogTitle>
+              <DialogDescription>
+                {card.bank} · fechamento dia {card.closing_day} · vencimento dia {card.due_day}
+                {card.titular ? ` · ${card.titular}` : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <div
+              className="rounded-lg p-4 text-white"
+              style={{ background: brand.gradient }}
+            >
+              <div className="text-xs uppercase tracking-wider opacity-80">Total da fatura</div>
+              <div className="text-3xl font-bold tracking-tight">{formatBRL(total)}</div>
+              <div className="text-xs opacity-80">{items.length} {items.length === 1 ? "lançamento" : "lançamentos"}</div>
+            </div>
+            <ScrollArea className="h-[360px] rounded-md border">
+              {items.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground">Nenhum lançamento neste cartão para o período.</p>
+              ) : (
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Titular</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>
+                          {t.category}
+                          {t.installments_total ? (
+                            <span className="ml-1 text-xs text-muted-foreground">({t.installment_no}/{t.installments_total})</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{t.description ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
+                        <TableCell className="text-right font-medium whitespace-nowrap">{formatBRL(Number(t.amount))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
