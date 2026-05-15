@@ -26,6 +26,9 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 interface Tx {
   id: string; occurred_on: string; competence_month: string;
   kind: string; category: string; amount: number;
+  description: string | null; bank: string | null;
+  payment_method: string | null; titular: string | null;
+  installment_no: number | null; installments_total: number | null;
 }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
