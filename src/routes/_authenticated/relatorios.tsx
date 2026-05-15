@@ -9,27 +9,30 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatBRL, KINDS } from "@/lib/finance-constants";
+import { useTitular, applyTitular } from "@/hooks/use-titular";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   component: Relatorios,
 });
 
-interface Tx { id: string; occurred_on: string; kind: string; category: string; amount: number; }
+interface Tx { id: string; occurred_on: string; competence_month: string; kind: string; category: string; amount: number; }
 
 function Relatorios() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
+  const { titular } = useTitular();
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
-    supabase.from("transactions")
-      .select("id, occurred_on, kind, category, amount")
-      .gte("occurred_on", start).lt("occurred_on", end)
-      .then(({ data }) => setTx((data ?? []) as Tx[]));
-  }, [year, month]);
+    let q = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount")
+      .gte("competence_month", start).lt("competence_month", end);
+    q = applyTitular(q, titular);
+    q.then(({ data }) => setTx((data ?? []) as Tx[]));
+  }, [year, month, titular]);
 
   const byKind = useMemo(() => {
     const map: Record<string, number> = {};
@@ -48,7 +51,7 @@ function Relatorios() {
       <header className="flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-semibold">Relatórios</h1>
-          <p className="text-muted-foreground">Visão mensal por tipo e categoria.</p>
+          <p className="text-muted-foreground">Visão mensal por tipo e categoria (competência).</p>
         </div>
         <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
       </header>

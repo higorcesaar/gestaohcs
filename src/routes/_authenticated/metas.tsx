@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/finance-constants";
@@ -35,7 +34,6 @@ function Metas() {
     if (error) toast.error(error.message);
     setList((data ?? []) as Goal[]);
   }
-
   useEffect(() => { load(); }, []);
 
   async function add(e: React.FormEvent) {
@@ -43,11 +41,11 @@ function Metas() {
     if (!user) return;
     const t = Number(target.replace(",", "."));
     const c = Number((current || "0").replace(",", "."));
-    if (!name || !t) { toast.error("Informe nome e valor alvo"); return; }
+    if (!name || !t) return toast.error("Informe nome e valor alvo");
     const { error } = await supabase.from("goals").insert({
       user_id: user.id, name, target_amount: t, current_amount: c,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) return toast.error(error.message);
     toast.success("Meta criada");
     setName(""); setTarget(""); setCurrent("");
     load();
@@ -95,33 +93,59 @@ function Metas() {
           {list.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma meta cadastrada.</p>
           ) : (
-            <ul className="space-y-5">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((g) => {
                 const pct = Math.min(100, Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100));
                 return (
-                  <li key={g.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{g.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatBRL(Number(g.current_amount))} de {formatBRL(Number(g.target_amount))}
-                        </div>
+                  <div key={g.id} className="rounded-xl border bg-card p-5 flex items-center gap-4 relative group">
+                    <CircularProgress value={pct} size={96} />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{g.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatBRL(Number(g.current_amount))}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium">{pct}%</span>
-                        <Button size="icon" variant="ghost" onClick={() => remove(g.id)}>
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
+                      <div className="text-xs text-muted-foreground">
+                        de {formatBRL(Number(g.target_amount))}
                       </div>
                     </div>
-                    <Progress value={pct} />
-                  </li>
+                    <Button
+                      size="icon" variant="ghost"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
+                      onClick={() => remove(g.id)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function CircularProgress({ value, size = 96 }: { value: number; size?: number }) {
+  const stroke = 8;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (value / 100) * c;
+  return (
+    <svg width={size} height={size} className="-rotate-90 shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--muted)" strokeWidth={stroke} fill="none" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        stroke="oklch(0.55 0.06 150)" strokeWidth={stroke} fill="none"
+        strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 700ms ease" }}
+      />
+      <text
+        x="50%" y="50%" dy="0.35em" textAnchor="middle"
+        className="fill-foreground"
+        fontSize={size * 0.22} fontWeight={600}
+        transform={`rotate(90 ${size / 2} ${size / 2})`}
+      >{value}%</text>
+    </svg>
   );
 }

@@ -6,50 +6,77 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
+import { useTitular, applyTitular } from "@/hooks/use-titular";
 
 export const Route = createFileRoute("/_authenticated/relatorios-consolidados")({
   component: Consolidados,
 });
 
-interface Tx { occurred_on: string; kind: string; amount: number; }
+interface Tx { competence_month: string; occurred_on: string; kind: string; amount: number; }
 
 function Consolidados() {
   const [tx, setTx] = useState<Tx[]>([]);
   const year = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const { titular } = useTitular();
 
   useEffect(() => {
-    const start = `${year}-01-01`;
+    // pega ano corrente + ano anterior (para projetar fixos baseados em meses passados)
+    const start = `${year - 1}-01-01`;
     const end = `${year + 1}-01-01`;
-    supabase.from("transactions")
-      .select("occurred_on, kind, amount")
-      .gte("occurred_on", start).lt("occurred_on", end)
-      .then(({ data }) => setTx((data ?? []) as Tx[]));
-  }, [year]);
+    let q = supabase.from("transactions")
+      .select("competence_month, occurred_on, kind, amount")
+      .gte("competence_month", start).lt("competence_month", end);
+    q = applyTitular(q, titular);
+    q.then(({ data }) => setTx((data ?? []) as Tx[]));
+  }, [year, titular]);
 
   const data = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => ({
       mes: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][i],
-      Receitas: 0, Fixos: 0, Variáveis: 0, Parcelamentos: 0,
+      Receitas: 0, Fixos: 0, Variáveis: 0, Parcelamentos: 0, projetado: false,
     }));
+
+    // Real (current year)
     for (const t of tx) {
-      const m = new Date(t.occurred_on).getMonth();
+      const [y, m] = t.competence_month.split("-").map(Number);
+      if (y !== year) continue;
+      const idx = m - 1;
       const amt = Number(t.amount);
-      if (t.kind === "receita") months[m].Receitas += amt;
-      if (t.kind === "fixo") months[m].Fixos += amt;
-      if (t.kind === "variavel") months[m].Variáveis += amt;
-      if (t.kind === "parcelamento") months[m].Parcelamentos += amt;
+      if (t.kind === "receita") months[idx].Receitas += amt;
+      if (t.kind === "fixo") months[idx].Fixos += amt;
+      if (t.kind === "variavel") months[idx].Variáveis += amt;
+      if (t.kind === "parcelamento") months[idx].Parcelamentos += amt;
+    }
+
+    // Projeção para meses futuros
+    // 1) Fixos: replicar média dos últimos 3 meses fechados
+    const fixosFechados: number[] = [];
+    for (let i = 0; i < currentMonth; i++) {
+      if (months[i].Fixos > 0) fixosFechados.push(months[i].Fixos);
+    }
+    const fixoMedia = fixosFechados.length
+      ? fixosFechados.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, fixosFechados.length)
+      : 0;
+
+    // 2) Parcelamentos: usar competência futura já cadastrada (já contabilizada acima).
+    for (let i = currentMonth; i < 12; i++) {
+      months[i].projetado = i > currentMonth;
+      if (i > currentMonth && months[i].Fixos === 0 && fixoMedia > 0) {
+        months[i].Fixos = Math.round(fixoMedia * 100) / 100;
+      }
     }
     return months;
-  }, [tx]);
+  }, [tx, year, currentMonth]);
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-3xl font-semibold">Relatórios Consolidados</h1>
-        <p className="text-muted-foreground">Visão anual {year}.</p>
+        <p className="text-muted-foreground">Visão anual {year} (com projeção dos meses futuros).</p>
       </header>
 
       <Card>
@@ -61,6 +88,7 @@ function Consolidados() {
               <XAxis dataKey="mes" stroke="var(--muted-foreground)" fontSize={12} />
               <YAxis stroke="var(--muted-foreground)" fontSize={12} />
               <Tooltip formatter={(v: number) => formatBRL(v)} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="Receitas" fill="oklch(0.62 0.12 150)" />
               <Bar dataKey="Fixos" fill="oklch(0.55 0.06 150)" />
               <Bar dataKey="Variáveis" fill="oklch(0.7 0.08 130)" />
@@ -88,8 +116,11 @@ function Consolidados() {
               {data.map((row) => {
                 const saldo = row.Receitas - row.Fixos - row.Variáveis - row.Parcelamentos;
                 return (
-                  <TableRow key={row.mes}>
-                    <TableCell>{row.mes}</TableCell>
+                  <TableRow key={row.mes} className={row.projetado ? "opacity-70" : ""}>
+                    <TableCell>
+                      {row.mes}
+                      {row.projetado && <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>}
+                    </TableCell>
                     <TableCell className="text-right">{formatBRL(row.Receitas)}</TableCell>
                     <TableCell className="text-right">{formatBRL(row.Fixos)}</TableCell>
                     <TableCell className="text-right">{formatBRL(row.Variáveis)}</TableCell>

@@ -184,6 +184,40 @@ function parseDate(s: string): string | null {
   return null;
 }
 
+function monthStart(iso: string): string { return iso.slice(0, 7) + "-01"; }
+function computeCompetenceMonth(occurredOn: string, paymentMethod: string | null, closingDay: number | null): string {
+  if (paymentMethod !== "Crédito" || !closingDay) return monthStart(occurredOn);
+  const [y, m, d] = occurredOn.split("-").map(Number);
+  let year = y, month = m;
+  if (d > closingDay) { month += 1; if (month > 12) { month = 1; year += 1; } }
+  return `${year}-${String(month).padStart(2, "0")}-01`;
+}
+
+function normalizePayment(s: string | undefined): string | null {
+  if (!s) return null;
+  const n = normalize(s);
+  if (n.includes("pix")) return "PIX";
+  if (n.includes("dinheiro")) return "Dinheiro";
+  if (n.includes("debit")) return "Débito";
+  if (n.includes("credit")) return "Crédito";
+  return s;
+}
+
+async function ensureCategoryAdmin(
+  admin: ReturnType<typeof createClient<Database>>,
+  userId: string, kind: string, name: string,
+): Promise<string> {
+  const trimmed = name.trim();
+  const { data: existing } = await admin
+    .from("categories").select("name")
+    .eq("user_id", userId).eq("kind", kind).ilike("name", trimmed).maybeSingle();
+  if (existing?.name) return existing.name;
+  const { data } = await admin
+    .from("categories").insert({ user_id: userId, kind, name: trimmed })
+    .select("name").single();
+  return data?.name ?? trimmed;
+}
+
 async function tryCreateTransaction(
   admin: ReturnType<typeof createClient<Database>>,
   text: string,
@@ -193,35 +227,48 @@ async function tryCreateTransaction(
   if (!tipoRaw) return { ok: false, message: "Mensagem ignorada (sem 'Tipo:')." };
 
   const kind = KIND_MAP[normalize(tipoRaw)];
-  if (!kind) return { ok: false, message: `Tipo inválido: "${tipoRaw}". Use: Gasto Fixo, Gasto Variável, Parcelamento ou Receita.` };
+  if (!kind) return { ok: false, message: `Tipo inválido: "${tipoRaw}".` };
 
-  const category = fields["categoria"];
-  if (!category) return { ok: false, message: "Campo 'Categoria' obrigatório." };
+  const categoryRaw = fields["categoria"];
+  if (!categoryRaw) return { ok: false, message: "Campo 'Categoria' obrigatório." };
 
   const amount = fields["valor"] ? parseAmount(fields["valor"]) : null;
   if (amount === null) return { ok: false, message: "Campo 'Valor' inválido." };
 
   const occurred_on = fields["data"] ? parseDate(fields["data"]) : new Date().toISOString().slice(0, 10);
-  if (!occurred_on) return { ok: false, message: `Data inválida: "${fields["data"]}". Use DD/MM/AAAA.` };
+  if (!occurred_on) return { ok: false, message: `Data inválida: "${fields["data"]}".` };
 
-  const { data: roleRow, error: roleErr } = await admin
+  const { data: roleRow } = await admin
     .from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
-  if (roleErr || !roleRow?.user_id) {
-    return { ok: false, message: "Administrador não encontrado para registrar." };
+  if (!roleRow?.user_id) return { ok: false, message: "Administrador não encontrado." };
+  const userId = roleRow.user_id as string;
+
+  const category = await ensureCategoryAdmin(admin, userId, kind, categoryRaw);
+  const paymentMethod = normalizePayment(fields["forma de pagamento"] || fields["pagamento"]);
+  const titular = fields["titular"] || null;
+  let bank = fields["banco"] || null;
+  let cardId: string | null = null;
+  let closingDay: number | null = null;
+
+  // Match cartão por nome OU banco
+  if (paymentMethod === "Crédito" || paymentMethod === "Débito") {
+    const { data: cards } = await admin.from("cards").select("*").eq("user_id", userId);
+    const needle = normalize(bank || "");
+    const match = (cards ?? []).find((c) => {
+      if (titular && c.titular && c.titular !== titular) return false;
+      return needle && (normalize(c.name).includes(needle) || normalize(c.bank).includes(needle));
+    });
+    if (match) { cardId = match.id; bank = match.bank; if (paymentMethod === "Crédito") closingDay = match.closing_day; }
   }
 
+  const competence_month = computeCompetenceMonth(occurred_on, paymentMethod, closingDay);
+
   const { error } = await admin.from("transactions").insert({
-    user_id: roleRow.user_id as string,
-    kind,
-    category,
-    amount,
-    occurred_on,
-    titular: fields["titular"] || null,
-    payment_method: fields["forma de pagamento"] || fields["pagamento"] || null,
-    bank: fields["banco"] || null,
+    user_id: userId, kind, category, amount, occurred_on, competence_month,
+    titular, payment_method: paymentMethod, bank, card_id: cardId,
     description: fields["descricao"] || null,
   });
 
   if (error) return { ok: false, message: `Erro ao salvar: ${error.message}` };
-  return { ok: true, message: `${category} • R$ ${amount.toFixed(2).replace(".", ",")} • ${occurred_on.split("-").reverse().join("/")}` };
+  return { ok: true, message: `${category} • R$ ${amount.toFixed(2).replace(".", ",")} • comp. ${competence_month.slice(0, 7)}` };
 }

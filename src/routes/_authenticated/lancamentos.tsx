@@ -13,11 +13,14 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  KINDS, TITULARES, PAYMENT_METHODS, BANKS, categoriesFor, formatBRL,
+  KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
+  computeCompetenceMonth, addMonths,
 } from "@/lib/finance-constants";
+import { useCategories, ensureCategory } from "@/hooks/use-categories";
+import { useTitular, applyTitular } from "@/hooks/use-titular";
 
 export const Route = createFileRoute("/_authenticated/lancamentos")({
   component: Lancamentos,
@@ -26,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/lancamentos")({
 interface Tx {
   id: string;
   occurred_on: string;
+  competence_month: string;
   kind: string;
   category: string;
   titular: string | null;
@@ -35,69 +39,128 @@ interface Tx {
   amount: number;
   installments_total: number | null;
   installment_no: number | null;
+  card_id: string | null;
+}
+
+interface CardRow {
+  id: string; name: string; bank: string; closing_day: number; due_day: number; titular: string | null;
 }
 
 function Lancamentos() {
   const { user } = useAuth();
+  const { titular: gTitular } = useTitular();
   const [list, setList] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState<CardRow[]>([]);
 
   const [kind, setKind] = useState("variavel");
   const [category, setCategory] = useState("");
+  const [newCategory, setNewCategory] = useState("");
   const [titular, setTitular] = useState("");
   const [payment, setPayment] = useState("");
   const [bank, setBank] = useState("");
+  const [cardId, setCardId] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
 
+  const { list: categories, reload: reloadCats } = useCategories(kind);
+
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("occurred_on", { ascending: false })
-      .limit(200);
+    let q = supabase.from("transactions").select("*").order("occurred_on", { ascending: false }).limit(200);
+    q = applyTitular(q, gTitular);
+    const { data, error } = await q;
     if (error) toast.error(error.message);
     setList((data ?? []) as Tx[]);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  async function loadCards() {
+    const { data } = await supabase.from("cards").select("*").order("name");
+    setCards((data ?? []) as CardRow[]);
+  }
+
+  useEffect(() => { load(); }, [gTitular]);
+  useEffect(() => { loadCards(); }, []);
+
+  const isCard = payment === "Crédito" || payment === "Débito";
+  const filteredCards = cards.filter((c) => !titular || !c.titular || c.titular === titular);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
     const value = Number(amount.replace(",", "."));
-    if (!value || value <= 0) {
-      toast.error("Informe um valor válido");
-      return;
+    if (!value || value <= 0) return toast.error("Informe um valor válido");
+
+    let categoryName = category;
+    if (newCategory.trim()) {
+      categoryName = await ensureCategory(user.id, kind, newCategory);
+      reloadCats();
     }
-    if (!category) {
-      toast.error("Selecione uma categoria");
-      return;
+    if (!categoryName) return toast.error("Selecione ou crie uma categoria");
+
+    if (!payment) return toast.error("Selecione a forma de pagamento");
+    if (payment !== "Dinheiro" && !bank && !cardId) return toast.error("Banco/Cartão obrigatório");
+
+    let selectedCard: CardRow | null = null;
+    let bankName = bank || null;
+    if (isCard && cardId) {
+      selectedCard = cards.find((c) => c.id === cardId) ?? null;
+      if (selectedCard) bankName = selectedCard.bank;
     }
-    const { error } = await supabase.from("transactions").insert({
-      user_id: user.id,
-      occurred_on: date,
-      kind,
-      category,
-      titular: titular || null,
-      payment_method: payment || null,
-      bank: bank || null,
-      description: description || null,
-      amount: value,
-      installments_total: instTotal ? Number(instTotal) : null,
-      installment_no: instNo ? Number(instNo) : null,
-    });
-    if (error) {
-      toast.error("Erro ao salvar", { description: error.message });
-      return;
+
+    const baseCompetence = computeCompetenceMonth(
+      date, payment, payment === "Crédito" ? selectedCard?.closing_day ?? null : null,
+    );
+
+    const total = Number(instTotal) || 1;
+    const startNo = Number(instNo) || 1;
+    const isParcel = kind === "parcelamento" && total > 1;
+    const rows = [];
+    if (isParcel) {
+      for (let i = 0; i < total - (startNo - 1); i++) {
+        rows.push({
+          user_id: user.id,
+          occurred_on: date,
+          competence_month: addMonths(baseCompetence, i),
+          kind,
+          category: categoryName,
+          titular: titular || null,
+          payment_method: payment,
+          bank: bankName,
+          card_id: selectedCard?.id ?? null,
+          description: description || null,
+          amount: value,
+          installments_total: total,
+          installment_no: startNo + i,
+        });
+      }
+    } else {
+      rows.push({
+        user_id: user.id,
+        occurred_on: date,
+        competence_month: baseCompetence,
+        kind,
+        category: categoryName,
+        titular: titular || null,
+        payment_method: payment,
+        bank: bankName,
+        card_id: selectedCard?.id ?? null,
+        description: description || null,
+        amount: value,
+        installments_total: kind === "parcelamento" ? total : null,
+        installment_no: kind === "parcelamento" ? startNo : null,
+      });
     }
-    toast.success("Lançamento adicionado");
-    setAmount(""); setDescription(""); setInstNo(""); setInstTotal("");
+
+    const { error } = await supabase.from("transactions").insert(rows);
+    if (error) return toast.error("Erro ao salvar", { description: error.message });
+
+    toast.success(isParcel ? `${rows.length} parcelas registradas` : "Lançamento adicionado");
+    setAmount(""); setDescription(""); setInstNo(""); setInstTotal(""); setNewCategory("");
     load();
   }
 
@@ -107,7 +170,6 @@ function Lancamentos() {
     else { toast.success("Removido"); load(); }
   }
 
-  const categories = categoriesFor(kind);
   const showInstallments = kind === "parcelamento";
 
   return (
@@ -133,18 +195,21 @@ function Lancamentos() {
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </Field>
+            <Field label="Nova categoria (opcional)">
+              <div className="flex gap-2">
+                <Input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="Ex: Pet" />
+                <Plus className="size-4 text-muted-foreground self-center" />
+              </div>
             </Field>
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </Field>
             <Field label="Valor (R$)">
-              <Input
-                inputMode="decimal" placeholder="0,00"
-                value={amount} onChange={(e) => setAmount(e.target.value)}
-              />
+              <Input inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </Field>
             <Field label="Titular">
               <Select value={titular} onValueChange={setTitular}>
@@ -155,28 +220,47 @@ function Lancamentos() {
               </Select>
             </Field>
             <Field label="Forma de pagamento">
-              <Select value={payment} onValueChange={setPayment}>
+              <Select value={payment} onValueChange={(v) => { setPayment(v); setBank(""); setCardId(""); }}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHODS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Banco">
-              <Select value={bank} onValueChange={setBank}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {BANKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
+            {payment === "Dinheiro" ? (
+              <Field label="Banco"><Input disabled placeholder="—" /></Field>
+            ) : isCard ? (
+              <Field label="Cartão">
+                <Select value={cardId} onValueChange={setCardId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um cartão" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredCards.length === 0 ? (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        Cadastre cartões na aba Cartões
+                      </div>
+                    ) : filteredCards.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name} ({c.bank})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            ) : (
+              <Field label="Banco">
+                <Select value={bank} onValueChange={setBank}>
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    {BANKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
             <Field label="Descrição" className="md:col-span-2">
               <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opcional" />
             </Field>
             {showInstallments && (
               <>
-                <Field label="Parcela atual">
-                  <Input type="number" min={1} value={instNo} onChange={(e) => setInstNo(e.target.value)} />
+                <Field label="Parcela inicial">
+                  <Input type="number" min={1} value={instNo} onChange={(e) => setInstNo(e.target.value)} placeholder="1" />
                 </Field>
                 <Field label="Total de parcelas">
                   <Input type="number" min={1} value={instTotal} onChange={(e) => setInstTotal(e.target.value)} />
@@ -202,6 +286,7 @@ function Lancamentos() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
+                  <TableHead>Competência</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Titular</TableHead>
@@ -215,6 +300,9 @@ function Lancamentos() {
                   <TableRow key={t.id}>
                     <TableCell className="whitespace-nowrap">
                       {new Date(t.occurred_on).toLocaleDateString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground capitalize">
+                      {new Date(t.competence_month).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })}
                     </TableCell>
                     <TableCell><Badge variant="secondary">{kindLabel(t.kind)}</Badge></TableCell>
                     <TableCell>

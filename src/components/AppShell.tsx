@@ -1,25 +1,33 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LogOut, LayoutDashboard, Receipt, Users, Wallet, Target,
-  BarChart3, FileBarChart,
+  BarChart3, FileBarChart, Tags, CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useTitular } from "@/hooks/use-titular";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { TITULARES } from "@/lib/finance-constants";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { titular, setTitular } = useTitular();
 
   const nav = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/lancamentos", label: "Lançamentos", icon: Receipt },
+    { to: "/categorias", label: "Categorias", icon: Tags },
+    { to: "/cartoes", label: "Cartões", icon: CreditCard },
+    { to: "/metas", label: "Metas", icon: Target },
+    { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
+    { to: "/relatorios-consolidados", label: "Consolidados", icon: FileBarChart },
     ...(role === "admin"
       ? [{ to: "/usuarios", label: "Usuários", icon: Users }]
       : []),
-    { to: "/metas", label: "Metas", icon: Target },
-    { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-    { to: "/relatorios-consolidados", label: "Relatórios Consolidados", icon: FileBarChart },
   ];
 
   return (
@@ -69,7 +77,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto px-8 py-8">{children}</div>
+        <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="mb-6 flex items-center justify-end gap-3">
+            <span className="text-xs text-muted-foreground">Titular:</span>
+            <Select value={titular} onValueChange={(v) => setTitular(v as "all" | "Higor" | "Mirelly")}>
+              <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {TITULARES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

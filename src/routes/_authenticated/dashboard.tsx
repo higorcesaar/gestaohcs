@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -13,13 +12,15 @@ import {
 import { formatBRL } from "@/lib/finance-constants";
 import { TrendingUp, Wallet, TrendingDown, CreditCard } from "lucide-react";
 import { MonthSelector } from "./relatorios";
+import { useTitular, applyTitular } from "@/hooks/use-titular";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
 interface Tx {
-  id: string; occurred_on: string; kind: string; category: string; amount: number;
+  id: string; occurred_on: string; competence_month: string;
+  kind: string; category: string; amount: number;
 }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
@@ -36,18 +37,19 @@ function Dashboard() {
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const { titular } = useTitular();
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
-    supabase.from("transactions")
-      .select("id, occurred_on, kind, category, amount")
-      .gte("occurred_on", start).lt("occurred_on", end)
-      .order("occurred_on", { ascending: false })
-      .then(({ data }) => setTx((data ?? []) as Tx[]));
-    supabase.from("goals").select("*")
-      .then(({ data }) => setGoals((data ?? []) as Goal[]));
-  }, [year, month]);
+    let q = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount")
+      .gte("competence_month", start).lt("competence_month", end)
+      .order("occurred_on", { ascending: false });
+    q = applyTitular(q, titular);
+    q.then(({ data }) => setTx((data ?? []) as Tx[]));
+    supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
+  }, [year, month, titular]);
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
   const receitas = sum("receita");
@@ -55,7 +57,6 @@ function Dashboard() {
   const variaveis = sum("variavel");
   const parcelas = sum("parcelamento");
 
-  // Receita weekly trend
   const receitaTrend = useMemo(() => {
     const days = new Date(year, month + 1, 0).getDate();
     const buckets = Array.from({ length: Math.ceil(days / 5) }, (_, i) => ({
@@ -69,7 +70,6 @@ function Dashboard() {
     return buckets;
   }, [tx, year, month]);
 
-  // Donut for fixos by category
   const fixosByCat = useMemo(() => {
     const map: Record<string, number> = {};
     tx.filter((t) => t.kind === "fixo").forEach((t) => {
@@ -78,7 +78,6 @@ function Dashboard() {
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [tx]);
 
-  // Bars for variáveis by category
   const variaveisByCat = useMemo(() => {
     const map: Record<string, number> = {};
     tx.filter((t) => t.kind === "variavel").forEach((t) => {
@@ -87,12 +86,8 @@ function Dashboard() {
     return Object.entries(map).map(([name, value]) => ({ name, value })).slice(0, 5);
   }, [tx]);
 
-  // Parcelamentos list
-  const parcList = useMemo(() => {
-    return tx.filter((t) => t.kind === "parcelamento").slice(0, 4);
-  }, [tx]);
+  const parcList = useMemo(() => tx.filter((t) => t.kind === "parcelamento").slice(0, 4), [tx]);
 
-  // Weekly balance analysis
   const weekly = useMemo(() => {
     const days = new Date(year, month + 1, 0).getDate();
     const buckets = Array.from({ length: Math.ceil(days / 4) }, (_, i) => ({
@@ -115,7 +110,6 @@ function Dashboard() {
     return buckets;
   }, [tx, year, month]);
 
-  // Maiores gastos por categoria (donut)
   const topCategories = useMemo(() => {
     const map: Record<string, number> = {};
     tx.filter((t) => t.kind !== "receita").forEach((t) => {
@@ -123,12 +117,13 @@ function Dashboard() {
     });
     return Object.entries(map)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
+      .slice(0, 12)
       .map(([name, value]) => ({ name, value }));
   }, [tx]);
 
   const recent = tx.slice(0, 6);
   const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const useBarsForCategories = topCategories.length > 6;
 
   return (
     <div className="space-y-6">
@@ -140,7 +135,6 @@ function Dashboard() {
         <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
       </header>
 
-      {/* KPI cards with mini-charts */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -230,7 +224,6 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Análise + Metas */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Análise Semanal de Saldos</CardTitle></CardHeader>
@@ -256,15 +249,17 @@ function Dashboard() {
           <CardContent className="space-y-4">
             {goals.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma meta cadastrada.</p>
-            ) : goals.slice(0, 5).map((g) => {
+            ) : goals.slice(0, 4).map((g) => {
               const pct = Math.min(100, Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100));
               return (
-                <div key={g.id} className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{g.name}</span>
-                    <span className="text-muted-foreground">{pct}%</span>
+                <div key={g.id} className="flex items-center gap-3">
+                  <CircularProgress value={pct} size={48} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{g.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatBRL(Number(g.current_amount))} / {formatBRL(Number(g.target_amount))}
+                    </div>
                   </div>
-                  <Progress value={pct} />
                 </div>
               );
             })}
@@ -272,7 +267,6 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Lançamentos recentes + Maiores gastos */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Lançamentos Recentes</CardTitle></CardHeader>
@@ -306,9 +300,19 @@ function Dashboard() {
 
         <Card>
           <CardHeader><CardTitle className="text-base">Maiores Gastos por Categoria</CardTitle></CardHeader>
-          <CardContent className="h-[280px]">
+          <CardContent className="h-[320px]">
             {topCategories.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sem dados.</p>
+            ) : useBarsForCategories ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topCategories} layout="vertical" margin={{ left: 10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickFormatter={(v) => formatBRL(v)} />
+                  <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={11} width={90} />
+                  <Tooltip formatter={(v: number) => formatBRL(v)} />
+                  <Bar dataKey="value" fill="oklch(0.55 0.06 150)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -324,5 +328,28 @@ function Dashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function CircularProgress({ value, size = 56 }: { value: number; size?: number }) {
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (value / 100) * c;
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--muted)" strokeWidth={stroke} fill="none" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        stroke="oklch(0.55 0.06 150)" strokeWidth={stroke} fill="none"
+        strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 600ms ease" }}
+      />
+      <text
+        x="50%" y="50%" dy="0.35em" textAnchor="middle"
+        className="rotate-90 origin-center fill-foreground"
+        fontSize={size * 0.28} fontWeight={600} transform={`rotate(90 ${size / 2} ${size / 2})`}
+      >{value}%</text>
+    </svg>
   );
 }
