@@ -25,7 +25,8 @@ export function useTitular() {
   return useContext(TitularCtx);
 }
 
-/** Apply titular filter to a Supabase query builder (PostgrestFilterBuilder) */
-export function applyTitular<T extends { eq: (col: string, v: unknown) => T }>(q: T, titular: Titular): T {
+/** Apply titular filter to a Supabase query builder */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function applyTitular<T extends { eq: (col: any, v: any) => T }>(q: T, titular: Titular): T {
   return titular === "all" ? q : q.eq("titular", titular);
 }
