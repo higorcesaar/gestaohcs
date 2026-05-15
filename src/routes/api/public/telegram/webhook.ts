@@ -277,7 +277,11 @@ async function tryCreateTransaction(
     if (match) { cardId = match.id; bank = match.bank; if (paymentMethod === "Crédito") closingDay = match.closing_day; }
   }
 
-  const competence_month = computeCompetenceMonth(occurred_on, paymentMethod, closingDay);
+  const { data: closedRows } = await admin
+    .from("closed_months").select("competence_month").eq("user_id", userId);
+  const closedMonths = (closedRows ?? []).map((r) => r.competence_month as string);
+
+  const competence_month = computeCompetenceMonth(occurred_on, paymentMethod, closingDay, closedMonths);
 
   const { error } = await admin.from("transactions").insert({
     user_id: userId, kind, category, amount, occurred_on, competence_month,
