@@ -45,13 +45,14 @@ function Dashboard() {
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [detailKind, setDetailKind] = useState<string | null>(null);
   const { titular } = useTitular();
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
