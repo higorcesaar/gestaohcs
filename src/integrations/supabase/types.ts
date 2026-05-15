@@ -35,6 +35,66 @@ export type Database = {
         }
         Relationships: []
       }
+      cards: {
+        Row: {
+          bank: string
+          closing_day: number
+          created_at: string
+          due_day: number
+          id: string
+          name: string
+          titular: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank: string
+          closing_day: number
+          created_at?: string
+          due_day: number
+          id?: string
+          name: string
+          titular?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank?: string
+          closing_day?: number
+          created_at?: string
+          due_day?: number
+          id?: string
+          name?: string
+          titular?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           created_at: string
@@ -126,7 +186,9 @@ export type Database = {
         Row: {
           amount: number
           bank: string | null
+          card_id: string | null
           category: string
+          competence_month: string
           created_at: string
           description: string | null
           id: string
@@ -141,7 +203,9 @@ export type Database = {
         Insert: {
           amount: number
           bank?: string | null
+          card_id?: string | null
           category: string
+          competence_month?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -156,7 +220,9 @@ export type Database = {
         Update: {
           amount?: number
           bank?: string | null
+          card_id?: string | null
           category?: string
+          competence_month?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -168,7 +234,15 @@ export type Database = {
           titular?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
