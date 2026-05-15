@@ -169,7 +169,8 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card onClick={() => setDetailKind("fixo")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-normal text-muted-foreground">Gastos Fixos</CardTitle>
             <Wallet className="size-4 text-muted-foreground" />
