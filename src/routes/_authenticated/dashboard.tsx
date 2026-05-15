@@ -29,7 +29,9 @@ interface Tx {
   description: string | null; bank: string | null;
   payment_method: string | null; titular: string | null;
   installment_no: number | null; installments_total: number | null;
+  card_id: string | null;
 }
+interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
 const PIE_COLORS = [
