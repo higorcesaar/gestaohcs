@@ -95,6 +95,27 @@ export type Database = {
         }
         Relationships: []
       }
+      closed_months: {
+        Row: {
+          closed_at: string
+          competence_month: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string
+          competence_month: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string
+          competence_month?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           created_at: string
