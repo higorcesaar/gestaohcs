@@ -15,9 +15,12 @@ import {
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
-import { TrendingUp, Wallet, TrendingDown, CreditCard } from "lucide-react";
+import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
+import { useClosedMonths } from "@/hooks/use-closed-months";
+import { Button } from "@/components/ui/button";
+import { Badge as UIBadge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
