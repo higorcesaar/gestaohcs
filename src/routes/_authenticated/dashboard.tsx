@@ -318,6 +318,26 @@ function Dashboard() {
         </Card>
       </div>
 
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-background to-background">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+              <CalendarClock className="size-4 text-primary" />
+              Previsão de Saída · <span className="capitalize text-foreground font-medium">{nextMonthLabel}</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Soma de tudo que já está provisionado para o próximo mês (cartão, variáveis, fixos e parcelas).
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1">
+            {nextTx.length} {nextTx.length === 1 ? "lançamento" : "lançamentos"}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold tracking-tight">{formatBRL(nextOutflow)}</div>
+        </CardContent>
+      </Card>
+
       {cardTotals.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-baseline justify-between">
