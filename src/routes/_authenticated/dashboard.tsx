@@ -47,20 +47,35 @@ function Dashboard() {
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [cards, setCards] = useState<CardRow[]>([]);
   const [detailKind, setDetailKind] = useState<string | null>(null);
+  const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const { titular } = useTitular();
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
+    supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
   }, [year, month, titular]);
+
+  const visibleCards = useMemo(
+    () => cards.filter((c) => titular === "all" || !c.titular || c.titular === titular),
+    [cards, titular],
+  );
+  const cardTotals = useMemo(() => {
+    return visibleCards.map((c) => {
+      const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
+      const total = items.reduce((s, t) => s + Number(t.amount), 0);
+      return { card: c, total, count: items.length };
+    });
+  }, [visibleCards, tx]);
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
   const receitas = sum("receita");
