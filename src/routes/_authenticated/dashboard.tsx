@@ -29,7 +29,9 @@ interface Tx {
   description: string | null; bank: string | null;
   payment_method: string | null; titular: string | null;
   installment_no: number | null; installments_total: number | null;
+  card_id: string | null;
 }
+interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
 const PIE_COLORS = [
@@ -45,20 +47,35 @@ function Dashboard() {
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [cards, setCards] = useState<CardRow[]>([]);
   const [detailKind, setDetailKind] = useState<string | null>(null);
+  const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const { titular } = useTitular();
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
+    supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
   }, [year, month, titular]);
+
+  const visibleCards = useMemo(
+    () => cards.filter((c) => titular === "all" || !c.titular || c.titular === titular),
+    [cards, titular],
+  );
+  const cardTotals = useMemo(() => {
+    return visibleCards.map((c) => {
+      const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
+      const total = items.reduce((s, t) => s + Number(t.amount), 0);
+      return { card: c, total, count: items.length };
+    });
+  }, [visibleCards, tx]);
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
   const receitas = sum("receita");
@@ -237,6 +254,54 @@ function Dashboard() {
         </Card>
       </div>
 
+      {cardTotals.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground">Faturas por cartão · competência selecionada</h2>
+            <span className="text-xs text-muted-foreground">
+              Total: {formatBRL(cardTotals.reduce((s, c) => s + c.total, 0))}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {cardTotals.map(({ card, total, count }) => {
+              const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => setDetailCardId(card.id)}
+                  className="group relative overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-lg hover:scale-[1.02]"
+                  style={{ background: brand.gradient, borderColor: brand.border }}
+                >
+                  <div className="flex items-start justify-between text-white/95">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="rounded-md bg-white/15 p-1.5 backdrop-blur-sm">
+                        <CreditCard className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{card.name}</div>
+                        <div className="text-[11px] uppercase tracking-wider opacity-80">{card.bank}</div>
+                      </div>
+                    </div>
+                    {card.titular && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                        {card.titular}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-4 text-white">
+                    <div className="text-2xl font-bold tracking-tight">{formatBRL(total)}</div>
+                    <div className="text-[11px] opacity-80">
+                      {count} {count === 1 ? "lançamento" : "lançamentos"} · venc. dia {card.due_day}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Análise Semanal de Saldos</CardTitle></CardHeader>
@@ -347,7 +412,107 @@ function Dashboard() {
         transactions={tx}
         monthLabel={monthLabel}
       />
+
+      <CardDetailDialog
+        cardId={detailCardId}
+        onClose={() => setDetailCardId(null)}
+        transactions={tx}
+        cards={cards}
+        monthLabel={monthLabel}
+      />
     </div>
+  );
+}
+
+const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
+  NUBANK: { gradient: "linear-gradient(135deg, #8a05be 0%, #5b0091 100%)", border: "#8a05be" },
+  INTER: { gradient: "linear-gradient(135deg, #ff7a00 0%, #cc5800 100%)", border: "#ff7a00" },
+  ITAU: { gradient: "linear-gradient(135deg, #ec7000 0%, #003399 100%)", border: "#ec7000" },
+  BRADESCO: { gradient: "linear-gradient(135deg, #cc092f 0%, #8a0620 100%)", border: "#cc092f" },
+  SANTANDER: { gradient: "linear-gradient(135deg, #ec0000 0%, #a40000 100%)", border: "#ec0000" },
+  CAIXA: { gradient: "linear-gradient(135deg, #0070af 0%, #f39200 100%)", border: "#0070af" },
+  "BANCO DO BRASIL": { gradient: "linear-gradient(135deg, #fae100 0%, #002d72 100%)", border: "#002d72" },
+  BB: { gradient: "linear-gradient(135deg, #fae100 0%, #002d72 100%)", border: "#002d72" },
+  C6: { gradient: "linear-gradient(135deg, #2c2c2c 0%, #000000 100%)", border: "#2c2c2c" },
+  XP: { gradient: "linear-gradient(135deg, #1e1e1e 0%, #f1c700 100%)", border: "#f1c700" },
+  PICPAY: { gradient: "linear-gradient(135deg, #21c25e 0%, #0e8a3e 100%)", border: "#21c25e" },
+  DEFAULT: { gradient: "linear-gradient(135deg, oklch(0.45 0.08 250) 0%, oklch(0.3 0.06 250) 100%)", border: "oklch(0.45 0.08 250)" },
+};
+
+function CardDetailDialog({
+  cardId, onClose, transactions, cards, monthLabel,
+}: {
+  cardId: string | null;
+  onClose: () => void;
+  transactions: Tx[];
+  cards: CardRow[];
+  monthLabel: string;
+}) {
+  const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
+  const items = useMemo(
+    () => cardId ? transactions.filter((t) => t.payment_method === "Crédito" && t.card_id === cardId) : [],
+    [transactions, cardId],
+  );
+  const total = items.reduce((s, t) => s + Number(t.amount), 0);
+  const brand = card ? (BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT) : null;
+
+  return (
+    <Dialog open={!!cardId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        {card && brand && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Fatura {card.name} · <span className="capitalize">{monthLabel}</span></DialogTitle>
+              <DialogDescription>
+                {card.bank} · fechamento dia {card.closing_day} · vencimento dia {card.due_day}
+                {card.titular ? ` · ${card.titular}` : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <div
+              className="rounded-lg p-4 text-white"
+              style={{ background: brand.gradient }}
+            >
+              <div className="text-xs uppercase tracking-wider opacity-80">Total da fatura</div>
+              <div className="text-3xl font-bold tracking-tight">{formatBRL(total)}</div>
+              <div className="text-xs opacity-80">{items.length} {items.length === 1 ? "lançamento" : "lançamentos"}</div>
+            </div>
+            <ScrollArea className="h-[360px] rounded-md border">
+              {items.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground">Nenhum lançamento neste cartão para o período.</p>
+              ) : (
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Titular</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>
+                          {t.category}
+                          {t.installments_total ? (
+                            <span className="ml-1 text-xs text-muted-foreground">({t.installment_no}/{t.installments_total})</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{t.description ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
+                        <TableCell className="text-right font-medium whitespace-nowrap">{formatBRL(Number(t.amount))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
