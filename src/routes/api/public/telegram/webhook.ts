@@ -185,12 +185,28 @@ function parseDate(s: string): string | null {
 }
 
 function monthStart(iso: string): string { return iso.slice(0, 7) + "-01"; }
-function computeCompetenceMonth(occurredOn: string, paymentMethod: string | null, closingDay: number | null): string {
-  if (paymentMethod !== "Crédito" || !closingDay) return monthStart(occurredOn);
-  const [y, m, d] = occurredOn.split("-").map(Number);
-  let year = y, month = m;
-  if (d > closingDay) { month += 1; if (month > 12) { month = 1; year += 1; } }
-  return `${year}-${String(month).padStart(2, "0")}-01`;
+function addMonth(iso: string): string {
+  const [y, m] = iso.split("-").map(Number);
+  const nm = m === 12 ? 1 : m + 1;
+  const ny = m === 12 ? y + 1 : y;
+  return `${ny}-${String(nm).padStart(2, "0")}-01`;
+}
+function computeCompetenceMonth(
+  occurredOn: string, paymentMethod: string | null, closingDay: number | null,
+  closedMonths: string[] = [],
+): string {
+  let base: string;
+  if (paymentMethod === "Crédito" && closingDay) {
+    const [y, m, d] = occurredOn.split("-").map(Number);
+    let year = y, month = m;
+    if (d > closingDay) { month += 1; if (month > 12) { month = 1; year += 1; } }
+    base = `${year}-${String(month).padStart(2, "0")}-01`;
+  } else {
+    base = monthStart(occurredOn);
+  }
+  const closed = new Set(closedMonths);
+  for (let i = 0; i < 24 && closed.has(base); i++) base = addMonth(base);
+  return base;
 }
 
 function normalizePayment(s: string | undefined): string | null {
