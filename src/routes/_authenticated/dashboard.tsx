@@ -15,9 +15,11 @@ import {
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
-import { TrendingUp, Wallet, TrendingDown, CreditCard } from "lucide-react";
+import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
+import { useClosedMonths } from "@/hooks/use-closed-months";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -46,21 +48,57 @@ function Dashboard() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
+  const [nextTx, setNextTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
   const [detailKind, setDetailKind] = useState<string | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
+  const [defaultApplied, setDefaultApplied] = useState(false);
   const { titular } = useTitular();
+  const { closedMonths, isClosed, close, reopen, loading: closedLoading } = useClosedMonths();
+
+  // Default: se mês atual está fechado, abre no próximo aberto.
+  useEffect(() => {
+    if (closedLoading || defaultApplied) return;
+    const currIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    let probe = currIso;
+    for (let i = 0; i < 12 && closedMonths.includes(probe); i++) {
+      const [y, m] = probe.split("-").map(Number);
+      const nm = m === 12 ? 1 : m + 1;
+      const ny = m === 12 ? y + 1 : y;
+      probe = `${ny}-${String(nm).padStart(2, "0")}-01`;
+    }
+    if (probe !== currIso) {
+      const [py, pm] = probe.split("-").map(Number);
+      setYear(py); setMonth(pm - 1);
+    }
+    setDefaultApplied(true);
+  }, [closedLoading, closedMonths, defaultApplied]);
+
+  const currentMonthIso = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const nextMonthDate = new Date(year, month + 1, 1);
+  const nextMonthIso = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+  const currentClosed = isClosed(currentMonthIso);
+  const monthLabelShort = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long" });
+  const nextMonthLabel = nextMonthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+    const endNext = new Date(year, month + 2, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
       .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
+
+    let qn = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
+      .gte("competence_month", end).lt("competence_month", endNext);
+    qn = applyTitular(qn, titular);
+    qn.then(({ data }) => setNextTx((data ?? []) as Tx[]));
+
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
     supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
   }, [year, month, titular]);
@@ -150,15 +188,41 @@ function Dashboard() {
   const recent = tx.slice(0, 6);
   const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const useBarsForCategories = topCategories.length > 6;
+  const nextOutflow = useMemo(
+    () => nextTx.filter((t) => t.kind !== "receita").reduce((s, t) => s + Number(t.amount), 0),
+    [nextTx],
+  );
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground capitalize">{monthLabel}</p>
+          <p className="text-muted-foreground capitalize flex items-center gap-2">
+            {monthLabel}
+            {currentClosed && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="size-3" /> Fatura paga
+              </Badge>
+            )}
+          </p>
         </div>
-        <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={currentClosed ? "outline" : "default"}
+            size="sm"
+            onClick={() => currentClosed ? reopen(currentMonthIso) : close(currentMonthIso)}
+            className="gap-2"
+          >
+            {currentClosed ? (
+              <><Lock className="size-4" /> Reabrir fatura de <span className="capitalize">{monthLabelShort}</span></>
+            ) : (
+              <><CheckCircle2 className="size-4" /> Marcar fatura de <span className="capitalize">{monthLabelShort}</span> como paga</>
+            )}
+          </Button>
+          <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -253,6 +317,26 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-background to-background">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+              <CalendarClock className="size-4 text-primary" />
+              Previsão de Saída · <span className="capitalize text-foreground font-medium">{nextMonthLabel}</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Soma de tudo que já está provisionado para o próximo mês (cartão, variáveis, fixos e parcelas).
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1">
+            {nextTx.length} {nextTx.length === 1 ? "lançamento" : "lançamentos"}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold tracking-tight">{formatBRL(nextOutflow)}</div>
+        </CardContent>
+      </Card>
 
       {cardTotals.length > 0 && (
         <section className="space-y-2">

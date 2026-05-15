@@ -41,21 +41,31 @@ export function monthStart(iso: string): string {
 /**
  * Regime de caixa para crédito: se dia <= fechamento → mês atual; senão → mês seguinte.
  * Demais formas de pagamento → mês de occurredOn.
+ * Se o mês calculado estiver em `closedMonths` (fatura paga), empurra para o próximo
+ * mês aberto. Isso vale para qualquer forma de pagamento.
  */
 export function computeCompetenceMonth(
   occurredOn: string,
   paymentMethod: string | null | undefined,
   closingDay: number | null | undefined,
+  closedMonths: string[] = [],
 ): string {
-  if (paymentMethod !== "Crédito" || !closingDay) return monthStart(occurredOn);
-  const [y, m, d] = occurredOn.split("-").map(Number);
-  const day = d;
-  let year = y, month = m;
-  if (day > closingDay) {
-    month += 1;
-    if (month > 12) { month = 1; year += 1; }
+  let base: string;
+  if (paymentMethod === "Crédito" && closingDay) {
+    const [y, m, d] = occurredOn.split("-").map(Number);
+    let year = y, month = m;
+    if (d > closingDay) {
+      month += 1;
+      if (month > 12) { month = 1; year += 1; }
+    }
+    base = `${year}-${String(month).padStart(2, "0")}-01`;
+  } else {
+    base = monthStart(occurredOn);
   }
-  return `${year}-${String(month).padStart(2, "0")}-01`;
+  const closed = new Set(closedMonths);
+  // safety bound to prevent infinite loops
+  for (let i = 0; i < 24 && closed.has(base); i++) base = addMonths(base, 1);
+  return base;
 }
 
 /** Adiciona N meses a um YYYY-MM-DD, retornando YYYY-MM-01 */

@@ -21,6 +21,7 @@ import {
 } from "@/lib/finance-constants";
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
+import { useClosedMonths } from "@/hooks/use-closed-months";
 
 export const Route = createFileRoute("/_authenticated/lancamentos")({
   component: Lancamentos,
@@ -67,6 +68,7 @@ function Lancamentos() {
   const [instNo, setInstNo] = useState("");
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
+  const { closedMonths } = useClosedMonths();
 
   async function load() {
     setLoading(true);
@@ -114,6 +116,7 @@ function Lancamentos() {
 
     const baseCompetence = computeCompetenceMonth(
       date, payment, payment === "Crédito" ? selectedCard?.closing_day ?? null : null,
+      closedMonths,
     );
 
     const total = Number(instTotal) || 1;
@@ -207,6 +210,25 @@ function Lancamentos() {
             </Field>
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              {(() => {
+                const sel = cards.find((c) => c.id === cardId) ?? null;
+                const preview = computeCompetenceMonth(
+                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  closedMonths,
+                );
+                const base = computeCompetenceMonth(
+                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  [],
+                );
+                const shifted = preview !== base;
+                const label = new Date(preview).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                return (
+                  <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                    Competência: <span className="capitalize font-medium">{label}</span>
+                    {shifted ? " · mês anterior já fechado" : ""}
+                  </p>
+                );
+              })()}
             </Field>
             <Field label="Valor (R$)">
               <Input inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />

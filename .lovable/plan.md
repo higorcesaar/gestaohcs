@@ -1,46 +1,62 @@
-## Evolução Cesar Finanças → ERP Financeiro
 
-Vou implementar em 5 blocos integrados. Antes de codar, preciso confirmar algumas decisões críticas que mudam a arquitetura.
+# Sistema de Fatura Paga e Transição de Competência
 
-### Bloco 1 — Categorias normalizadas (FK)
-- Nova tabela `categories` (`id`, `user_id`, `name`, `kind`, `created_at`), única por (`user_id`, `kind`, `lower(name)`).
-- Seed automático com as listas atuais de `finance-constants.ts` no primeiro acesso do admin.
-- `transactions.category` passa a ser `category_id uuid` (FK). Migração converte os textos atuais para FKs criando o que faltar.
-- Tela "Categorias" (CRUD) sob `_authenticated/categorias.tsx`.
-- Form de Lançamento: dropdown carregado do banco, filtrado pelo `kind` selecionado.
+## 1. Banco de dados (nova tabela)
 
-### Bloco 2 — Cartões + regime de caixa
-- Nova tabela `cards` (`id`, `user_id`, `name`, `bank`, `closing_day` 1–31, `due_day` 1–31, `titular`).
-- Em `transactions`: adicionar `card_id uuid null` e `competence_month date` (1º dia do mês de competência).
-- Regra automática ao salvar lançamento de **Crédito**:
-  - Se `occurred_on.day <= closing_day` → competência = mês de `occurred_on`.
-  - Se `occurred_on.day >  closing_day` → competência = mês seguinte.
-- Lançamentos não-crédito: competência = mês de `occurred_on`.
-- Parcelamentos: cria N linhas, cada uma com competência avançando 1 mês a partir da regra acima.
-- Dashboard, Relatórios, Saldo Mensal e Tabela Anual passam a agrupar por `competence_month` (não por `occurred_on`). Listagem de Lançamentos continua mostrando `occurred_on` mas com coluna "Competência".
+Criar `closed_months` para registrar competências liquidadas:
 
-### Bloco 3 — Filtro global por Titular
-- `<TitularFilter>` no `AppShell` (Todos / Higor / Mirelly), persistido em `localStorage` + Context.
-- Hook `useTitularFilter()` aplicado em Dashboard, Lançamentos, Relatórios, Relatórios Consolidados, Metas.
+```sql
+create table public.closed_months (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  competence_month date not null,  -- ex: 2026-05-01
+  closed_at timestamptz not null default now(),
+  unique (user_id, competence_month)
+);
+-- RLS: owner-only (select/insert/delete by user_id = auth.uid())
+```
 
-### Bloco 4 — Dashboard / UI
-- **Projeção futura** na Tabela Anual e Relatórios Consolidados: para meses ≥ mês atual, somar (a) gastos fixos do último mês fechado replicados, (b) parcelas de crédito já agendadas com competência futura.
-- **Metas**: trocar texto por `Progress` circular (SVG) com % e valores.
-- **Gráfico de categorias**: se `categorias > 6` → BarChart horizontal ordenado desc; senão mantém PieChart.
+Marcar fatura como paga = INSERT. Reabrir = DELETE.
 
-### Bloco 5 — Banco condicional
-- Form de Lançamento: `banco` obrigatório se `forma_pagamento ≠ Dinheiro`.
-- Quando forma = Crédito ou Débito, o seletor de "Banco" passa a ser seletor de **Cartão** (lista de `cards` do titular). Ao escolher o cartão, `bank` é auto-preenchido.
+## 2. Lógica de competência (atualizar `computeCompetenceMonth`)
 
-### Detalhes técnicos
-- Migrações: 1 migração consolidada criando `categories`, `cards`, alterando `transactions` (add `card_id`, `competence_month`, `category_id`), backfill, depois drop da coluna `category` antiga (texto). RLS por `user_id` em todas.
-- `finance-constants.ts` mantém apenas KINDS, TITULARES, PAYMENT_METHODS, BANKS (fallback). Categorias passam a vir do banco.
-- Webhook do Telegram precisa resolver `category` → `category_id` (cria se não existir) e aplicar a mesma regra de competência.
+Nova assinatura aceita lista de meses fechados do usuário. Regra:
 
----
+1. Calcular competência base (regra atual: crédito + dia fechamento).
+2. **Enquanto** a competência calculada estiver em `closedMonths`, somar +1 mês.
+3. Aplicar tanto para Crédito quanto para todos os outros métodos (gastos variáveis também são empurrados pra frente se o mês atual está fechado).
 
-### ❓ Preciso confirmar antes de migrar (afeta dados existentes)
+Isso resolve simultaneamente os itens 2 e 4 (bloqueio retroativo): se hoje é 15/mai, Nubank fechou dia 9 → base = junho; se já marcaram maio como fechado e fizer uma compra retroativa do dia 5 → base = maio (fechado) → empurra pra junho.
 
-1. **Backfill do `competence_month`** dos lançamentos atuais de Crédito: aplico a regra de fechamento? Para isso preciso já ter os cartões cadastrados. Posso fazer o backfill assumindo competência = mês de `occurred_on` para tudo (você re-categoriza depois conforme cadastrar os cartões), ou prefere que eu pause e peça os cartões antes?
-2. **Cartões iniciais**: quais cartões cadastro de partida? Sugiro Nubank, Inter — me passe `dia de fechamento` e `dia de vencimento` de cada e o titular, ou cadastro vazio para você preencher na nova tela.
-3. **Regra de competência no dia exato do fechamento** (ex.: fechamento dia 5, compra dia 5): conta no mês atual ou já vai pro próximo? Padrão proposto: `dia <= fechamento` = mês atual.
+## 3. Hook compartilhado `useClosedMonths`
+
+Hook que carrega os meses fechados do usuário (uma vez, com cache) e expõe:
+- `closedMonths: string[]` (YYYY-MM-01)
+- `isClosed(month)`
+- `close(month)` / `reopen(month)`
+
+Usado em Dashboard, Lançamentos e webhook do Telegram.
+
+## 4. UI no Dashboard
+
+- **Botão "Marcar fatura de {Mês} como paga"** ao lado do seletor de mês. Se já paga, vira "Reabrir fatura de {Mês}" com badge "Fechada".
+- **Card "Previsão de Saída: {próximo mês}"** na linha de KPIs, somando todos os lançamentos com `competence_month = mês seguinte`.
+- **Seletor de mês**: ao inicializar, se mês atual está em `closedMonths`, abrir no próximo mês.
+
+## 5. UI em Lançamentos
+
+- Ao salvar, usar `computeCompetenceMonth` já com `closedMonths`.
+- Mostrar aviso discreto abaixo da data se a competência foi empurrada: "Será lançado em Junho/2026 (Maio fechado)."
+
+## 6. Webhook do Telegram
+
+Atualizar para também consultar `closed_months` e aplicar mesma regra de empurrar competência.
+
+## Arquivos afetados
+
+- `supabase/migrations/*` (nova migration)
+- `src/lib/finance-constants.ts` — atualizar `computeCompetenceMonth`
+- `src/hooks/use-closed-months.ts` — novo hook
+- `src/routes/_authenticated/dashboard.tsx` — botão fatura paga, card próxima fatura, default month
+- `src/routes/_authenticated/lancamentos.tsx` — usar closedMonths, mostrar aviso
+- `src/routes/api/public/telegram/webhook.ts` — aplicar closedMonths
