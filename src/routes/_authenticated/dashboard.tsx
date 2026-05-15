@@ -48,21 +48,57 @@ function Dashboard() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
+  const [nextTx, setNextTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
   const [detailKind, setDetailKind] = useState<string | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
+  const [defaultApplied, setDefaultApplied] = useState(false);
   const { titular } = useTitular();
+  const { closedMonths, isClosed, close, reopen, loading: closedLoading } = useClosedMonths();
+
+  // Default: se mês atual está fechado, abre no próximo aberto.
+  useEffect(() => {
+    if (closedLoading || defaultApplied) return;
+    const currIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    let probe = currIso;
+    for (let i = 0; i < 12 && closedMonths.includes(probe); i++) {
+      const [y, m] = probe.split("-").map(Number);
+      const nm = m === 12 ? 1 : m + 1;
+      const ny = m === 12 ? y + 1 : y;
+      probe = `${ny}-${String(nm).padStart(2, "0")}-01`;
+    }
+    if (probe !== currIso) {
+      const [py, pm] = probe.split("-").map(Number);
+      setYear(py); setMonth(pm - 1);
+    }
+    setDefaultApplied(true);
+  }, [closedLoading, closedMonths, defaultApplied]);
+
+  const currentMonthIso = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const nextMonthDate = new Date(year, month + 1, 1);
+  const nextMonthIso = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+  const currentClosed = isClosed(currentMonthIso);
+  const monthLabelShort = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long" });
+  const nextMonthLabel = nextMonthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   useEffect(() => {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+    const endNext = new Date(year, month + 2, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
       .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
+
+    let qn = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
+      .gte("competence_month", end).lt("competence_month", endNext);
+    qn = applyTitular(qn, titular);
+    qn.then(({ data }) => setNextTx((data ?? []) as Tx[]));
+
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
     supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
   }, [year, month, titular]);
