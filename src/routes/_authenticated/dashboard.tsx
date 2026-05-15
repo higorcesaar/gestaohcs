@@ -340,9 +340,146 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <DetailDialog
+        kind={detailKind}
+        onClose={() => setDetailKind(null)}
+        transactions={tx}
+        monthLabel={monthLabel}
+      />
     </div>
   );
 }
+
+const KIND_META: Record<string, { title: string; description: string; accent: string }> = {
+  receita: {
+    title: "Receitas",
+    description: "Todas as entradas de dinheiro do período. Inclui salários, freelas, rendimentos e outros valores recebidos.",
+    accent: "text-success",
+  },
+  fixo: {
+    title: "Gastos Fixos",
+    description: "Despesas recorrentes que se repetem todo mês com valor previsível (aluguel, internet, assinaturas, contas de consumo).",
+    accent: "text-foreground",
+  },
+  variavel: {
+    title: "Gastos Variáveis",
+    description: "Despesas pontuais que variam de mês a mês (mercado, transporte, lazer, refeições fora).",
+    accent: "text-foreground",
+  },
+  parcelamento: {
+    title: "Parcelamentos",
+    description: "Compras parceladas em andamento. Cada parcela aparece no mês de competência (fatura) em que será cobrada.",
+    accent: "text-foreground",
+  },
+};
+
+function DetailDialog({
+  kind, onClose, transactions, monthLabel,
+}: {
+  kind: string | null;
+  onClose: () => void;
+  transactions: Tx[];
+  monthLabel: string;
+}) {
+  const meta = kind ? KIND_META[kind] : null;
+  const filtered = useMemo(
+    () => kind ? transactions.filter((t) => t.kind === kind) : [],
+    [transactions, kind],
+  );
+  const total = filtered.reduce((s, t) => s + Number(t.amount), 0);
+  const byCategory = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach((t) => { map[t.category] = (map[t.category] ?? 0) + Number(t.amount); });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
+  }, [filtered]);
+
+  return (
+    <Dialog open={!!kind} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        {meta && (
+          <>
+            <DialogHeader>
+              <DialogTitle className={meta.accent}>{meta.title} · <span className="capitalize">{monthLabel}</span></DialogTitle>
+              <DialogDescription>{meta.description}</DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
+              <div>
+                <div className="text-xs text-muted-foreground">Total</div>
+                <div className={`text-lg font-semibold ${meta.accent}`}>{formatBRL(total)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Quantidade</div>
+                <div className="text-lg font-semibold">{filtered.length}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Média</div>
+                <div className="text-lg font-semibold">{formatBRL(filtered.length ? total / filtered.length : 0)}</div>
+              </div>
+            </div>
+
+            {byCategory.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground">Resumo por categoria</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {byCategory.map(([cat, val]) => (
+                    <Badge key={cat} variant="secondary" className="font-normal">
+                      {cat} · {formatBRL(val)}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <ScrollArea className="h-[360px] rounded-md border">
+              {filtered.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground">Nenhum lançamento neste período.</p>
+              ) : (
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead>Titular</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell>
+                          {t.category}
+                          {t.installments_total ? (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              ({t.installment_no}/{t.installments_total})
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{t.description ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {t.payment_method ?? "—"}{t.bank ? ` · ${t.bank}` : ""}
+                        </TableCell>
+                        <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
+                        <TableCell className={`text-right font-medium whitespace-nowrap ${meta.accent}`}>
+                          {formatBRL(Number(t.amount))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </ScrollArea>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function CircularProgress({ value, size = 56 }: { value: number; size?: number }) {
   const stroke = 5;
