@@ -188,15 +188,41 @@ function Dashboard() {
   const recent = tx.slice(0, 6);
   const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const useBarsForCategories = topCategories.length > 6;
+  const nextOutflow = useMemo(
+    () => nextTx.filter((t) => t.kind !== "receita").reduce((s, t) => s + Number(t.amount), 0),
+    [nextTx],
+  );
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground capitalize">{monthLabel}</p>
+          <p className="text-muted-foreground capitalize flex items-center gap-2">
+            {monthLabel}
+            {currentClosed && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="size-3" /> Fatura paga
+              </Badge>
+            )}
+          </p>
         </div>
-        <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={currentClosed ? "outline" : "default"}
+            size="sm"
+            onClick={() => currentClosed ? reopen(currentMonthIso) : close(currentMonthIso)}
+            className="gap-2"
+          >
+            {currentClosed ? (
+              <><Lock className="size-4" /> Reabrir fatura de <span className="capitalize">{monthLabelShort}</span></>
+            ) : (
+              <><CheckCircle2 className="size-4" /> Marcar fatura de <span className="capitalize">{monthLabelShort}</span> como paga</>
+            )}
+          </Button>
+          <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
