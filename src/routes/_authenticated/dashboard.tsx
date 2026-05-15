@@ -254,6 +254,54 @@ function Dashboard() {
         </Card>
       </div>
 
+      {cardTotals.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground">Faturas por cartão · competência selecionada</h2>
+            <span className="text-xs text-muted-foreground">
+              Total: {formatBRL(cardTotals.reduce((s, c) => s + c.total, 0))}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {cardTotals.map(({ card, total, count }) => {
+              const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => setDetailCardId(card.id)}
+                  className="group relative overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-lg hover:scale-[1.02]"
+                  style={{ background: brand.gradient, borderColor: brand.border }}
+                >
+                  <div className="flex items-start justify-between text-white/95">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="rounded-md bg-white/15 p-1.5 backdrop-blur-sm">
+                        <CreditCard className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{card.name}</div>
+                        <div className="text-[11px] uppercase tracking-wider opacity-80">{card.bank}</div>
+                      </div>
+                    </div>
+                    {card.titular && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                        {card.titular}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-4 text-white">
+                    <div className="text-2xl font-bold tracking-tight">{formatBRL(total)}</div>
+                    <div className="text-[11px] opacity-80">
+                      {count} {count === 1 ? "lançamento" : "lançamentos"} · venc. dia {card.due_day}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Análise Semanal de Saldos</CardTitle></CardHeader>
