@@ -145,7 +145,8 @@ function Dashboard() {
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-normal text-muted-foreground">Receitas</CardTitle>
             <TrendingUp className="size-4 text-success" />
