@@ -20,7 +20,6 @@ import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
 import { Button } from "@/components/ui/button";
-import { Badge as UIBadge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
