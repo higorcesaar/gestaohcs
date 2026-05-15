@@ -210,6 +210,25 @@ function Lancamentos() {
             </Field>
             <Field label="Data">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              {(() => {
+                const sel = cards.find((c) => c.id === cardId) ?? null;
+                const preview = computeCompetenceMonth(
+                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  closedMonths,
+                );
+                const base = computeCompetenceMonth(
+                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  [],
+                );
+                const shifted = preview !== base;
+                const label = new Date(preview).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                return (
+                  <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                    Competência: <span className="capitalize font-medium">{label}</span>
+                    {shifted ? " · mês anterior já fechado" : ""}
+                  </p>
+                );
+              })()}
             </Field>
             <Field label="Valor (R$)">
               <Input inputMode="decimal" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
