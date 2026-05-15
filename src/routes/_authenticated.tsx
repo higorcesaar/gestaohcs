@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { AppShell } from "@/components/AppShell";
+import { TitularProvider } from "@/hooks/use-titular";
 
 export const Route = createFileRoute("/_authenticated")({
   component: Layout,
@@ -11,8 +12,10 @@ function Layout() {
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!session) return <Navigate to="/login" />;
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <TitularProvider>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </TitularProvider>
   );
 }
