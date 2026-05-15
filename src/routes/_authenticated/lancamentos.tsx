@@ -68,6 +68,7 @@ function Lancamentos() {
   const [instNo, setInstNo] = useState("");
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
+  const { closedMonths } = useClosedMonths();
 
   async function load() {
     setLoading(true);
