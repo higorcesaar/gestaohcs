@@ -607,13 +607,14 @@ const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
 };
 
 function CardDetailDialog({
-  cardId, onClose, transactions, cards, monthLabel,
+  cardId, onClose, transactions, cards, monthLabel, isFatturaPaga,
 }: {
   cardId: string | null;
   onClose: () => void;
   transactions: Tx[];
   cards: CardRow[];
   monthLabel: string;
+  isFatturaPaga: boolean;
 }) {
   const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
   const items = useMemo(
@@ -636,11 +637,16 @@ function CardDetailDialog({
               </DialogDescription>
             </DialogHeader>
             <div
-              className="rounded-lg p-4 text-white"
+              className="rounded-lg p-4 text-white relative overflow-hidden"
               style={{ background: brand.gradient }}
             >
+              {isFatturaPaga && (
+                <Badge className="absolute right-3 top-3 bg-emerald-500 text-white border-0 gap-1">
+                  <CheckCircle2 className="size-3" /> Fatura paga
+                </Badge>
+              )}
               <div className="text-xs uppercase tracking-wider opacity-80">Total da fatura</div>
-              <div className="text-3xl font-bold tracking-tight">{formatBRL(total)}</div>
+              <div className={`text-3xl font-bold tracking-tight ${isFatturaPaga ? "line-through opacity-70" : ""}`}>{formatBRL(total)}</div>
               <div className="text-xs opacity-80">{items.length} {items.length === 1 ? "lançamento" : "lançamentos"}</div>
             </div>
             <ScrollArea className="h-[360px] rounded-md border">
@@ -707,12 +713,13 @@ const KIND_META: Record<string, { title: string; description: string; accent: st
 };
 
 function DetailDialog({
-  kind, onClose, transactions, monthLabel,
+  kind, onClose, transactions, monthLabel, onToggleStatus,
 }: {
   kind: string | null;
   onClose: () => void;
   transactions: Tx[];
   monthLabel: string;
+  onToggleStatus: (t: Tx) => void;
 }) {
   const meta = kind ? KIND_META[kind] : null;
   const filtered = useMemo(
@@ -776,12 +783,15 @@ function DetailDialog({
                       <TableHead>Descrição</TableHead>
                       <TableHead>Pagamento</TableHead>
                       <TableHead>Titular</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((t) => (
-                      <TableRow key={t.id}>
+                    {filtered.map((t) => {
+                      const isPago = t.status === "pago";
+                      return (
+                      <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                         <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell>
                           {t.category}
@@ -796,11 +806,28 @@ function DetailDialog({
                           {t.payment_method ?? "—"}{t.bank ? ` · ${t.bank}` : ""}
                         </TableCell>
                         <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
-                        <TableCell className={`text-right font-medium whitespace-nowrap ${meta.accent}`}>
+                        <TableCell>
+                          {kind !== "receita" ? (
+                            <button
+                              type="button"
+                              onClick={() => onToggleStatus(t)}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                                isPago
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                              }`}
+                            >
+                              {isPago ? <CheckCircle2 className="size-3" /> : <Circle className="size-3" />}
+                              {isPago ? "Liquidado" : "Pendente"}
+                            </button>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className={`text-right font-medium whitespace-nowrap ${meta.accent} ${isPago && kind !== "receita" ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
                           {formatBRL(Number(t.amount))}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
