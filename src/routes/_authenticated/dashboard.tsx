@@ -118,10 +118,43 @@ function Dashboard() {
   }, [visibleCards, tx]);
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
+  const sumPaid = (k: string) =>
+    tx.filter((t) => t.kind === k && t.status === "pago").reduce((s, t) => s + Number(t.amount), 0);
+  const sumPending = (k: string) =>
+    tx.filter((t) => t.kind === k && t.status !== "pago").reduce((s, t) => s + Number(t.amount), 0);
   const receitas = sum("receita");
   const fixos = sum("fixo");
   const variaveis = sum("variavel");
   const parcelas = sum("parcelamento");
+
+  // Saldo = Receitas - tudo que já foi pago (todas as categorias exceto receita)
+  const totalPago = tx
+    .filter((t) => t.kind !== "receita" && t.status === "pago")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const totalPendente = tx
+    .filter((t) => t.kind !== "receita" && t.status !== "pago")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const saldoConta = receitas - totalPago;
+
+  async function refresh() {
+    const start = new Date(year, month, 1).toISOString().slice(0, 10);
+    const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+    let q = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
+      .gte("competence_month", start).lt("competence_month", end)
+      .order("occurred_on", { ascending: false });
+    q = applyTitular(q, titular);
+    const { data } = await q;
+    setTx((data ?? []) as Tx[]);
+  }
+
+  async function toggleStatus(t: Tx) {
+    const next = t.status === "pago" ? "pendente" : "pago";
+    setTx((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x));
+    const { error } = await supabase.from("transactions").update({ status: next }).eq("id", t.id);
+    if (error) { toast.error(error.message); refresh(); return; }
+    toast.success(next === "pago" ? "Marcado como pago" : "Marcado como pendente");
+  }
 
   const receitaTrend = useMemo(() => {
     const days = new Date(year, month + 1, 0).getDate();
