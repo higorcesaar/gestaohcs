@@ -218,6 +218,7 @@ export type Database = {
           kind: string
           occurred_on: string
           payment_method: string | null
+          status: string
           titular: string | null
           user_id: string
         }
@@ -235,6 +236,7 @@ export type Database = {
           kind: string
           occurred_on?: string
           payment_method?: string | null
+          status?: string
           titular?: string | null
           user_id: string
         }
@@ -252,6 +254,7 @@ export type Database = {
           kind?: string
           occurred_on?: string
           payment_method?: string | null
+          status?: string
           titular?: string | null
           user_id?: string
         }
