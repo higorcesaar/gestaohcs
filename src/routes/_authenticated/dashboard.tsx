@@ -560,6 +560,7 @@ function Dashboard() {
         onClose={() => setDetailKind(null)}
         transactions={tx}
         monthLabel={monthLabel}
+        onToggleStatus={toggleStatus}
       />
 
       <CardDetailDialog
@@ -568,7 +569,24 @@ function Dashboard() {
         transactions={tx}
         cards={cards}
         monthLabel={monthLabel}
+        isFatturaPaga={currentClosed}
       />
+    </div>
+  );
+}
+
+function PaidPendingRow({ paid, pending }: { paid: number; pending: number }) {
+  if (paid === 0 && pending === 0) {
+    return <div className="mt-1 text-[11px] text-muted-foreground">Sem lançamentos</div>;
+  }
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+      <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+        <CheckCircle2 className="size-2.5" /> Pago {formatBRL(paid)}
+      </span>
+      <span className="inline-flex items-center gap-1 text-amber-600">
+        <Circle className="size-2.5" /> Pendente {formatBRL(pending)}
+      </span>
     </div>
   );
 }
