@@ -141,6 +141,7 @@ function Lancamentos() {
           amount: value,
           installments_total: total,
           installment_no: startNo + i,
+          status,
         });
       }
     } else {
@@ -158,6 +159,7 @@ function Lancamentos() {
         amount: value,
         installments_total: kind === "parcelamento" ? total : null,
         installment_no: kind === "parcelamento" ? startNo : null,
+        status,
       });
     }
 
@@ -173,6 +175,17 @@ function Lancamentos() {
     const { error } = await supabase.from("transactions").delete().eq("id", id);
     if (error) toast.error(error.message);
     else { toast.success("Removido"); load(); }
+  }
+
+  async function toggleStatus(t: Tx) {
+    const next = t.status === "pago" ? "pendente" : "pago";
+    const { error } = await supabase
+      .from("transactions")
+      .update({ status: next })
+      .eq("id", t.id);
+    if (error) return toast.error(error.message);
+    toast.success(next === "pago" ? "Marcado como pago" : "Marcado como pendente");
+    setList((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x));
   }
 
   const showInstallments = kind === "parcelamento";
