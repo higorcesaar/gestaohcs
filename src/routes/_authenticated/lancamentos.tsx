@@ -337,13 +337,16 @@ function Lancamentos() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Titular</TableHead>
                   <TableHead>Pagamento</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((t) => (
-                  <TableRow key={t.id}>
+                {list.map((t) => {
+                  const isPago = t.status === "pago";
+                  return (
+                  <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                     <TableCell className="whitespace-nowrap">
                       {new Date(t.occurred_on).toLocaleDateString("pt-BR")}
                     </TableCell>
@@ -361,7 +364,22 @@ function Lancamentos() {
                     </TableCell>
                     <TableCell>{t.titular ?? "—"}</TableCell>
                     <TableCell>{t.payment_method ?? "—"}</TableCell>
-                    <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""}`}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(t)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                          isPago
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                        }`}
+                        title="Clique para alternar"
+                      >
+                        {isPago ? <CheckCircle2 className="size-3" /> : <Circle className="size-3" />}
+                        {isPago ? "Liquidado" : "Pendente"}
+                      </button>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""} ${isPago && t.kind !== "receita" ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
                       {formatBRL(Number(t.amount))}
                     </TableCell>
                     <TableCell>
@@ -370,7 +388,8 @@ function Lancamentos() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
