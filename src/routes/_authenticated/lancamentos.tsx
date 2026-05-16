@@ -13,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import {
   KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
@@ -41,6 +41,7 @@ interface Tx {
   installments_total: number | null;
   installment_no: number | null;
   card_id: string | null;
+  status: string;
 }
 
 interface CardRow {
@@ -66,6 +67,7 @@ function Lancamentos() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
+  const [status, setStatus] = useState<"pendente" | "pago">("pendente");
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
   const { closedMonths } = useClosedMonths();
@@ -139,6 +141,7 @@ function Lancamentos() {
           amount: value,
           installments_total: total,
           installment_no: startNo + i,
+          status,
         });
       }
     } else {
@@ -156,6 +159,7 @@ function Lancamentos() {
         amount: value,
         installments_total: kind === "parcelamento" ? total : null,
         installment_no: kind === "parcelamento" ? startNo : null,
+        status,
       });
     }
 
@@ -171,6 +175,17 @@ function Lancamentos() {
     const { error } = await supabase.from("transactions").delete().eq("id", id);
     if (error) toast.error(error.message);
     else { toast.success("Removido"); load(); }
+  }
+
+  async function toggleStatus(t: Tx) {
+    const next = t.status === "pago" ? "pendente" : "pago";
+    const { error } = await supabase
+      .from("transactions")
+      .update({ status: next })
+      .eq("id", t.id);
+    if (error) return toast.error(error.message);
+    toast.success(next === "pago" ? "Marcado como pago" : "Marcado como pendente");
+    setList((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x));
   }
 
   const showInstallments = kind === "parcelamento";
@@ -289,6 +304,15 @@ function Lancamentos() {
                 </Field>
               </>
             )}
+            <Field label="Status">
+              <Select value={status} onValueChange={(v) => setStatus(v as "pago" | "pendente")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago / Liquidado</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <div className="md:col-span-3 flex justify-end">
               <Button type="submit">Adicionar lançamento</Button>
             </div>
@@ -313,13 +337,16 @@ function Lancamentos() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Titular</TableHead>
                   <TableHead>Pagamento</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((t) => (
-                  <TableRow key={t.id}>
+                {list.map((t) => {
+                  const isPago = t.status === "pago";
+                  return (
+                  <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                     <TableCell className="whitespace-nowrap">
                       {new Date(t.occurred_on).toLocaleDateString("pt-BR")}
                     </TableCell>
@@ -337,7 +364,22 @@ function Lancamentos() {
                     </TableCell>
                     <TableCell>{t.titular ?? "—"}</TableCell>
                     <TableCell>{t.payment_method ?? "—"}</TableCell>
-                    <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""}`}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(t)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                          isPago
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                        }`}
+                        title="Clique para alternar"
+                      >
+                        {isPago ? <CheckCircle2 className="size-3" /> : <Circle className="size-3" />}
+                        {isPago ? "Liquidado" : "Pendente"}
+                      </button>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""} ${isPago && t.kind !== "receita" ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
                       {formatBRL(Number(t.amount))}
                     </TableCell>
                     <TableCell>
@@ -346,7 +388,8 @@ function Lancamentos() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

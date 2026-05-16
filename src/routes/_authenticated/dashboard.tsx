@@ -15,11 +15,12 @@ import {
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
-import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock } from "lucide-react";
+import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -32,6 +33,7 @@ interface Tx {
   payment_method: string | null; titular: string | null;
   installment_no: number | null; installments_total: number | null;
   card_id: string | null;
+  status: string;
 }
 interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
@@ -87,14 +89,14 @@ function Dashboard() {
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
     const endNext = new Date(year, month + 2, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
 
     let qn = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
       .gte("competence_month", end).lt("competence_month", endNext);
     qn = applyTitular(qn, titular);
     qn.then(({ data }) => setNextTx((data ?? []) as Tx[]));
@@ -116,10 +118,43 @@ function Dashboard() {
   }, [visibleCards, tx]);
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
+  const sumPaid = (k: string) =>
+    tx.filter((t) => t.kind === k && t.status === "pago").reduce((s, t) => s + Number(t.amount), 0);
+  const sumPending = (k: string) =>
+    tx.filter((t) => t.kind === k && t.status !== "pago").reduce((s, t) => s + Number(t.amount), 0);
   const receitas = sum("receita");
   const fixos = sum("fixo");
   const variaveis = sum("variavel");
   const parcelas = sum("parcelamento");
+
+  // Saldo = Receitas - tudo que já foi pago (todas as categorias exceto receita)
+  const totalPago = tx
+    .filter((t) => t.kind !== "receita" && t.status === "pago")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const totalPendente = tx
+    .filter((t) => t.kind !== "receita" && t.status !== "pago")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const saldoConta = receitas - totalPago;
+
+  async function refresh() {
+    const start = new Date(year, month, 1).toISOString().slice(0, 10);
+    const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+    let q = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
+      .gte("competence_month", start).lt("competence_month", end)
+      .order("occurred_on", { ascending: false });
+    q = applyTitular(q, titular);
+    const { data } = await q;
+    setTx((data ?? []) as Tx[]);
+  }
+
+  async function toggleStatus(t: Tx) {
+    const next = t.status === "pago" ? "pendente" : "pago";
+    setTx((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x));
+    const { error } = await supabase.from("transactions").update({ status: next }).eq("id", t.id);
+    if (error) { toast.error(error.message); refresh(); return; }
+    toast.success(next === "pago" ? "Marcado como pago" : "Marcado como pendente");
+  }
 
   const receitaTrend = useMemo(() => {
     const days = new Date(year, month + 1, 0).getDate();
@@ -225,6 +260,33 @@ function Dashboard() {
         </div>
       </header>
 
+      <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-background to-background">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+              <Coins className="size-4 text-emerald-600" />
+              Saldo em conta · <span className="capitalize text-foreground font-medium">{monthLabel}</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Receitas do mês menos tudo que já foi efetivamente pago (gastos fixos liquidados, fatura paga, PIX/Débito).
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1 text-xs">
+            Fórmula: Receitas − Pagos
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className={`text-3xl font-bold tracking-tight ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+            {formatBRL(saldoConta)}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span>Receitas: <span className="font-medium text-success">{formatBRL(receitas)}</span></span>
+            <span>Pagos: <span className="font-medium text-emerald-700 dark:text-emerald-400">−{formatBRL(totalPago)}</span></span>
+            <span>Pendentes (não impactam saldo): <span className="font-medium text-amber-600">{formatBRL(totalPendente)}</span></span>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
 
@@ -258,7 +320,8 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatBRL(fixos)}</div>
-            <div className="h-16 mt-2">
+            <PaidPendingRow paid={sumPaid("fixo")} pending={sumPending("fixo")} />
+            <div className="h-12 mt-2">
               {fixosByCat.length === 0 ? (
                 <div className="text-xs text-muted-foreground">Sem dados</div>
               ) : (
@@ -282,7 +345,8 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatBRL(variaveis)}</div>
-            <div className="h-16 mt-2">
+            <PaidPendingRow paid={sumPaid("variavel")} pending={sumPending("variavel")} />
+            <div className="h-12 mt-2">
               {variaveisByCat.length === 0 ? (
                 <div className="text-xs text-muted-foreground">Sem dados</div>
               ) : (
@@ -304,6 +368,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatBRL(parcelas)}</div>
+            <PaidPendingRow paid={sumPaid("parcelamento")} pending={sumPending("parcelamento")} />
             <div className="mt-2 space-y-1 text-xs">
               {parcList.length === 0 ? (
                 <div className="text-muted-foreground">Sem parcelamentos</div>
@@ -495,6 +560,7 @@ function Dashboard() {
         onClose={() => setDetailKind(null)}
         transactions={tx}
         monthLabel={monthLabel}
+        onToggleStatus={toggleStatus}
       />
 
       <CardDetailDialog
@@ -503,7 +569,24 @@ function Dashboard() {
         transactions={tx}
         cards={cards}
         monthLabel={monthLabel}
+        isFatturaPaga={currentClosed}
       />
+    </div>
+  );
+}
+
+function PaidPendingRow({ paid, pending }: { paid: number; pending: number }) {
+  if (paid === 0 && pending === 0) {
+    return <div className="mt-1 text-[11px] text-muted-foreground">Sem lançamentos</div>;
+  }
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+      <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+        <CheckCircle2 className="size-2.5" /> Pago {formatBRL(paid)}
+      </span>
+      <span className="inline-flex items-center gap-1 text-amber-600">
+        <Circle className="size-2.5" /> Pendente {formatBRL(pending)}
+      </span>
     </div>
   );
 }
@@ -524,13 +607,14 @@ const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
 };
 
 function CardDetailDialog({
-  cardId, onClose, transactions, cards, monthLabel,
+  cardId, onClose, transactions, cards, monthLabel, isFatturaPaga,
 }: {
   cardId: string | null;
   onClose: () => void;
   transactions: Tx[];
   cards: CardRow[];
   monthLabel: string;
+  isFatturaPaga: boolean;
 }) {
   const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
   const items = useMemo(
@@ -553,11 +637,16 @@ function CardDetailDialog({
               </DialogDescription>
             </DialogHeader>
             <div
-              className="rounded-lg p-4 text-white"
+              className="rounded-lg p-4 text-white relative overflow-hidden"
               style={{ background: brand.gradient }}
             >
+              {isFatturaPaga && (
+                <Badge className="absolute right-3 top-3 bg-emerald-500 text-white border-0 gap-1">
+                  <CheckCircle2 className="size-3" /> Fatura paga
+                </Badge>
+              )}
               <div className="text-xs uppercase tracking-wider opacity-80">Total da fatura</div>
-              <div className="text-3xl font-bold tracking-tight">{formatBRL(total)}</div>
+              <div className={`text-3xl font-bold tracking-tight ${isFatturaPaga ? "line-through opacity-70" : ""}`}>{formatBRL(total)}</div>
               <div className="text-xs opacity-80">{items.length} {items.length === 1 ? "lançamento" : "lançamentos"}</div>
             </div>
             <ScrollArea className="h-[360px] rounded-md border">
@@ -624,12 +713,13 @@ const KIND_META: Record<string, { title: string; description: string; accent: st
 };
 
 function DetailDialog({
-  kind, onClose, transactions, monthLabel,
+  kind, onClose, transactions, monthLabel, onToggleStatus,
 }: {
   kind: string | null;
   onClose: () => void;
   transactions: Tx[];
   monthLabel: string;
+  onToggleStatus: (t: Tx) => void;
 }) {
   const meta = kind ? KIND_META[kind] : null;
   const filtered = useMemo(
@@ -693,12 +783,15 @@ function DetailDialog({
                       <TableHead>Descrição</TableHead>
                       <TableHead>Pagamento</TableHead>
                       <TableHead>Titular</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((t) => (
-                      <TableRow key={t.id}>
+                    {filtered.map((t) => {
+                      const isPago = t.status === "pago";
+                      return (
+                      <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                         <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
                         <TableCell>
                           {t.category}
@@ -713,11 +806,28 @@ function DetailDialog({
                           {t.payment_method ?? "—"}{t.bank ? ` · ${t.bank}` : ""}
                         </TableCell>
                         <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
-                        <TableCell className={`text-right font-medium whitespace-nowrap ${meta.accent}`}>
+                        <TableCell>
+                          {kind !== "receita" ? (
+                            <button
+                              type="button"
+                              onClick={() => onToggleStatus(t)}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                                isPago
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                              }`}
+                            >
+                              {isPago ? <CheckCircle2 className="size-3" /> : <Circle className="size-3" />}
+                              {isPago ? "Liquidado" : "Pendente"}
+                            </button>
+                          ) : <span className="text-xs text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className={`text-right font-medium whitespace-nowrap ${meta.accent} ${isPago && kind !== "receita" ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
                           {formatBRL(Number(t.amount))}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

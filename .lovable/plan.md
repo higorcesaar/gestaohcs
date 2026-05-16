@@ -1,62 +1,37 @@
+## Objetivo
+Adicionar status "pago/pendente" aos lançamentos, refletir fatura de cartão já liquidada, recalcular o saldo principal de Maio e exibir um card de "Planejamento para Junho" no Dashboard.
 
-# Sistema de Fatura Paga e Transição de Competência
+## 1. Banco de dados
+- Adicionar coluna `status text not null default 'pendente'` à tabela `transactions` (valores: `'pago' | 'pendente'`).
+- Backfill: marcar como `'pago'` automaticamente todos os lançamentos cuja `competence_month` esteja em `closed_months` (mesma regra — fatura/mês fechado = liquidado).
 
-## 1. Banco de dados (nova tabela)
+## 2. Lógica de competência (já existe)
+- A função `computeCompetenceMonth` já empurra gastos para o próximo mês quando o mês-base está em `closed_months`. Item 2 do pedido (compras pós-fechamento vão para Junho) já está coberto — sem mudanças.
 
-Criar `closed_months` para registrar competências liquidadas:
+## 3. Lançamentos (`lancamentos.tsx`)
+- Novo seletor "Status" (Pago / Pendente) no formulário, default Pendente.
+- Coluna "Status" na tabela com badge verde "Liquidado" / âmbar "Pendente".
+- Botão rápido para alternar status direto na linha (check icon).
 
-```sql
-create table public.closed_months (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  competence_month date not null,  -- ex: 2026-05-01
-  closed_at timestamptz not null default now(),
-  unique (user_id, competence_month)
-);
--- RLS: owner-only (select/insert/delete by user_id = auth.uid())
-```
+## 4. Dashboard (`dashboard.tsx`)
+- **Cards principais** ganham subtítulos:
+  - "Receitas" — sem mudança.
+  - "Gastos" — divide em `Pagos` e `Pendentes` (soma total continua igual).
+  - **Saldo** passa a refletir a nova fórmula:
+    `Saldo = Receitas − (Gastos com status='pago' no mês, todas as formas de pagamento, incluindo a fatura de crédito do mês que foi marcada como paga)`.
+    Gastos pendentes deixam de impactar o saldo (aparecem só como "a pagar").
+- **Card "Planejamento para {próximo mês}"** (lateral, ao lado de Receitas/Gastos): soma `amount` de transações com `competence_month = next_month`, mostrando total e quebra rápida (fixos/variáveis/crédito).
+- **Modal de detalhamento** dos cards mostra badge de status por linha.
+- **Resumo por cartão** mostra badge "Fatura paga" quando o `competence_month` correspondente está em `closed_months`, e exibe o valor riscado/em verde.
 
-Marcar fatura como paga = INSERT. Reabrir = DELETE.
-
-## 2. Lógica de competência (atualizar `computeCompetenceMonth`)
-
-Nova assinatura aceita lista de meses fechados do usuário. Regra:
-
-1. Calcular competência base (regra atual: crédito + dia fechamento).
-2. **Enquanto** a competência calculada estiver em `closedMonths`, somar +1 mês.
-3. Aplicar tanto para Crédito quanto para todos os outros métodos (gastos variáveis também são empurrados pra frente se o mês atual está fechado).
-
-Isso resolve simultaneamente os itens 2 e 4 (bloqueio retroativo): se hoje é 15/mai, Nubank fechou dia 9 → base = junho; se já marcaram maio como fechado e fizer uma compra retroativa do dia 5 → base = maio (fechado) → empurra pra junho.
-
-## 3. Hook compartilhado `useClosedMonths`
-
-Hook que carrega os meses fechados do usuário (uma vez, com cache) e expõe:
-- `closedMonths: string[]` (YYYY-MM-01)
-- `isClosed(month)`
-- `close(month)` / `reopen(month)`
-
-Usado em Dashboard, Lançamentos e webhook do Telegram.
-
-## 4. UI no Dashboard
-
-- **Botão "Marcar fatura de {Mês} como paga"** ao lado do seletor de mês. Se já paga, vira "Reabrir fatura de {Mês}" com badge "Fechada".
-- **Card "Previsão de Saída: {próximo mês}"** na linha de KPIs, somando todos os lançamentos com `competence_month = mês seguinte`.
-- **Seletor de mês**: ao inicializar, se mês atual está em `closedMonths`, abrir no próximo mês.
-
-## 5. UI em Lançamentos
-
-- Ao salvar, usar `computeCompetenceMonth` já com `closedMonths`.
-- Mostrar aviso discreto abaixo da data se a competência foi empurrada: "Será lançado em Junho/2026 (Maio fechado)."
-
-## 6. Webhook do Telegram
-
-Atualizar para também consultar `closed_months` e aplicar mesma regra de empurrar competência.
+## 5. Considerações de UI
+- Verde semântico: usar `text-emerald-600 / bg-emerald-500/10` (tokens existentes via Tailwind).
+- Mantém filtros de titular e mês.
 
 ## Arquivos afetados
+- `supabase/migrations/*_add_status_to_transactions.sql`
+- `src/lib/finance-constants.ts` (constante `TRANSACTION_STATUS`)
+- `src/routes/_authenticated/lancamentos.tsx` (form + tabela + toggle)
+- `src/routes/_authenticated/dashboard.tsx` (saldo, gastos pagos/pendentes, card de Junho, badge de cartão)
 
-- `supabase/migrations/*` (nova migration)
-- `src/lib/finance-constants.ts` — atualizar `computeCompetenceMonth`
-- `src/hooks/use-closed-months.ts` — novo hook
-- `src/routes/_authenticated/dashboard.tsx` — botão fatura paga, card próxima fatura, default month
-- `src/routes/_authenticated/lancamentos.tsx` — usar closedMonths, mostrar aviso
-- `src/routes/api/public/telegram/webhook.ts` — aplicar closedMonths
+Após aprovação, executo a migração e em seguida as edições de código.
