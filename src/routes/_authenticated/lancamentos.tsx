@@ -304,6 +304,15 @@ function Lancamentos() {
                 </Field>
               </>
             )}
+            <Field label="Status">
+              <Select value={status} onValueChange={(v) => setStatus(v as "pago" | "pendente")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago / Liquidado</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <div className="md:col-span-3 flex justify-end">
               <Button type="submit">Adicionar lançamento</Button>
             </div>
