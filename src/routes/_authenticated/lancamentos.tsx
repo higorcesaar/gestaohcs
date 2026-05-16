@@ -13,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import {
   KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
@@ -41,6 +41,7 @@ interface Tx {
   installments_total: number | null;
   installment_no: number | null;
   card_id: string | null;
+  status: string;
 }
 
 interface CardRow {
@@ -66,6 +67,7 @@ function Lancamentos() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
+  const [status, setStatus] = useState<"pendente" | "pago">("pendente");
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
   const { closedMonths } = useClosedMonths();
