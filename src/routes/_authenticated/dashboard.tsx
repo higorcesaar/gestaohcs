@@ -260,6 +260,33 @@ function Dashboard() {
         </div>
       </header>
 
+      <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-background to-background">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+              <Coins className="size-4 text-emerald-600" />
+              Saldo em conta · <span className="capitalize text-foreground font-medium">{monthLabel}</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Receitas do mês menos tudo que já foi efetivamente pago (gastos fixos liquidados, fatura paga, PIX/Débito).
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1 text-xs">
+            Fórmula: Receitas − Pagos
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className={`text-3xl font-bold tracking-tight ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+            {formatBRL(saldoConta)}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span>Receitas: <span className="font-medium text-success">{formatBRL(receitas)}</span></span>
+            <span>Pagos: <span className="font-medium text-emerald-700 dark:text-emerald-400">−{formatBRL(totalPago)}</span></span>
+            <span>Pendentes (não impactam saldo): <span className="font-medium text-amber-600">{formatBRL(totalPendente)}</span></span>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
 
