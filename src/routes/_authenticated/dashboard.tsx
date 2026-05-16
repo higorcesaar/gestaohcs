@@ -320,7 +320,8 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatBRL(fixos)}</div>
-            <div className="h-16 mt-2">
+            <PaidPendingRow paid={sumPaid("fixo")} pending={sumPending("fixo")} />
+            <div className="h-12 mt-2">
               {fixosByCat.length === 0 ? (
                 <div className="text-xs text-muted-foreground">Sem dados</div>
               ) : (
@@ -344,7 +345,8 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatBRL(variaveis)}</div>
-            <div className="h-16 mt-2">
+            <PaidPendingRow paid={sumPaid("variavel")} pending={sumPending("variavel")} />
+            <div className="h-12 mt-2">
               {variaveisByCat.length === 0 ? (
                 <div className="text-xs text-muted-foreground">Sem dados</div>
               ) : (
@@ -366,6 +368,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{formatBRL(parcelas)}</div>
+            <PaidPendingRow paid={sumPaid("parcelamento")} pending={sumPending("parcelamento")} />
             <div className="mt-2 space-y-1 text-xs">
               {parcList.length === 0 ? (
                 <div className="text-muted-foreground">Sem parcelamentos</div>
