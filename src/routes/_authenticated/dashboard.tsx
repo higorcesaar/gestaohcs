@@ -15,11 +15,12 @@ import {
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
-import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock } from "lucide-react";
+import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -32,6 +33,7 @@ interface Tx {
   payment_method: string | null; titular: string | null;
   installment_no: number | null; installments_total: number | null;
   card_id: string | null;
+  status: string;
 }
 interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
@@ -87,14 +89,14 @@ function Dashboard() {
     const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
     const endNext = new Date(year, month + 2, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
 
     let qn = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
       .gte("competence_month", end).lt("competence_month", endNext);
     qn = applyTitular(qn, titular);
     qn.then(({ data }) => setNextTx((data ?? []) as Tx[]));
