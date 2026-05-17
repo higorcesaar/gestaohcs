@@ -236,7 +236,7 @@ function Lancamentos() {
                   [],
                 );
                 const shifted = preview !== base;
-                const label = new Date(preview).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                const label = formatCompetenceBR(preview);
                 return (
                   <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
                     Competência: <span className="capitalize font-medium">{label}</span>
