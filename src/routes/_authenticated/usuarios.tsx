@@ -26,7 +26,7 @@ interface UserRow { id: string; email: string; display_name: string | null; crea
 interface AllowedRow { email: string; is_admin: boolean; created_at: string }
 
 function UsuariosPage() {
-  const { role, loading } = useAuth();
+  const { role, loading, user } = useAuth();
   const fetchUsers = useServerFn(listUsers);
   const fetchAllowed = useServerFn(listAllowedEmails);
   const doCreate = useServerFn(createUser);
