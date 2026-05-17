@@ -64,7 +64,10 @@ function Lancamentos() {
   const [cardId, setCardId] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  });
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
   const [status, setStatus] = useState<"pendente" | "pago">("pendente");
