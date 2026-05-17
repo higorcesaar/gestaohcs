@@ -113,9 +113,24 @@ function Dashboard() {
     return visibleCards.map((c) => {
       const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
       const total = items.reduce((s, t) => s + Number(t.amount), 0);
-      return { card: c, total, count: items.length };
+      const paidCount = items.filter((t) => t.status === "pago").length;
+      const allPaid = items.length > 0 && paidCount === items.length;
+      return { card: c, total, count: items.length, paidCount, allPaid, items };
     });
   }, [visibleCards, tx]);
+
+  async function toggleCardStatus(cardId: string, markAs: "pago" | "pendente") {
+    const target = cardTotals.find((c) => c.card.id === cardId);
+    if (!target || target.items.length === 0) return;
+    const ids = target.items.map((t) => t.id);
+    setTx((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, status: markAs } : x));
+    const { error } = await supabase
+      .from("transactions")
+      .update({ status: markAs })
+      .in("id", ids);
+    if (error) { toast.error(error.message); refresh(); return; }
+    toast.success(markAs === "pago" ? "Fatura marcada como paga" : "Fatura marcada como pendente");
+  }
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
   const sumPaid = (k: string) =>
