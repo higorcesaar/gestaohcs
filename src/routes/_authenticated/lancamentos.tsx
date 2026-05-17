@@ -348,10 +348,10 @@ function Lancamentos() {
                   return (
                   <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                     <TableCell className="whitespace-nowrap">
-                      {new Date(t.occurred_on).toLocaleDateString("pt-BR")}
+                      {formatDateBR(t.occurred_on)}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground capitalize">
-                      {new Date(t.competence_month).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatCompetenceBR(t.competence_month)}
                     </TableCell>
                     <TableCell><Badge variant="secondary">{kindLabel(t.kind)}</Badge></TableCell>
                     <TableCell>
