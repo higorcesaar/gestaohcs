@@ -45,6 +45,21 @@ function UsuariosPage() {
   const [allowEmail, setAllowEmail] = useState("");
   const [allowAdmin, setAllowAdmin] = useState(false);
 
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+
+  async function onChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
+    if (newPwd !== confirmPwd) return toast.error("As senhas não coincidem");
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPwd });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Senha alterada com sucesso");
+    setNewPwd(""); setConfirmPwd("");
+  }
+
   async function refresh() {
     try {
       const [u, a] = await Promise.all([fetchUsers(), fetchAllowed()]);
