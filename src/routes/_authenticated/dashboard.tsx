@@ -14,7 +14,7 @@ import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
-import { formatBRL } from "@/lib/finance-constants";
+import { formatBRL, formatDateBR, parseLocalDate } from "@/lib/finance-constants";
 import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
@@ -162,7 +162,7 @@ function Dashboard() {
       label: `S${i + 1}`, valor: 0,
     }));
     tx.filter((t) => t.kind === "receita").forEach((t) => {
-      const d = new Date(t.occurred_on).getDate();
+      const d = parseLocalDate(t.occurred_on).getDate();
       const idx = Math.floor((d - 1) / 5);
       if (buckets[idx]) buckets[idx].valor += Number(t.amount);
     });
@@ -195,7 +195,7 @@ function Dashboard() {
     }));
     let acc = 0;
     tx.slice().sort((a, b) => a.occurred_on.localeCompare(b.occurred_on)).forEach((t) => {
-      const d = new Date(t.occurred_on).getDate();
+      const d = parseLocalDate(t.occurred_on).getDate();
       const idx = Math.floor((d - 1) / 4);
       const v = Number(t.amount);
       if (!buckets[idx]) return;
@@ -512,7 +512,7 @@ function Dashboard() {
                 <TableBody>
                   {recent.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>{formatDateBR(t.occurred_on)}</TableCell>
                       <TableCell>{t.category}</TableCell>
                       <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""}`}>
                         {formatBRL(Number(t.amount))}
@@ -666,7 +666,7 @@ function CardDetailDialog({
                   <TableBody>
                     {items.map((t) => (
                       <TableRow key={t.id}>
-                        <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDateBR(t.occurred_on)}</TableCell>
                         <TableCell>
                           {t.category}
                           {t.installments_total ? (
@@ -792,7 +792,7 @@ function DetailDialog({
                       const isPago = t.status === "pago";
                       return (
                       <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
-                        <TableCell className="whitespace-nowrap">{new Date(t.occurred_on).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDateBR(t.occurred_on)}</TableCell>
                         <TableCell>
                           {t.category}
                           {t.installments_total ? (

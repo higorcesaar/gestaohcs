@@ -39,10 +39,15 @@ export function monthStart(iso: string): string {
 }
 
 /**
- * Regime de caixa para crédito: se dia <= fechamento → mês atual; senão → mês seguinte.
+ * Regime de caixa para crédito.
+ * Regra estrita: se `dia da compra >= (dia_fechamento - 1)`, a compra cai na
+ * fatura do mês seguinte (M+1). Caso contrário, fica no mês corrente.
  * Demais formas de pagamento → mês de occurredOn.
- * Se o mês calculado estiver em `closedMonths` (fatura paga), empurra para o próximo
- * mês aberto. Isso vale para qualquer forma de pagamento.
+ * Se o mês calculado estiver em `closedMonths` (fatura paga), empurra para o
+ * próximo mês aberto.
+ *
+ * IMPORTANTE: occurredOn é tratado como string local YYYY-MM-DD —
+ * nunca passa por `new Date()` para evitar deslocamento de fuso.
  */
 export function computeCompetenceMonth(
   occurredOn: string,
@@ -54,7 +59,7 @@ export function computeCompetenceMonth(
   if (paymentMethod === "Crédito" && closingDay) {
     const [y, m, d] = occurredOn.split("-").map(Number);
     let year = y, month = m;
-    if (d > closingDay) {
+    if (d >= closingDay - 1) {
       month += 1;
       if (month > 12) { month = 1; year += 1; }
     }
@@ -66,6 +71,28 @@ export function computeCompetenceMonth(
   // safety bound to prevent infinite loops
   for (let i = 0; i < 24 && closed.has(base); i++) base = addMonths(base, 1);
   return base;
+}
+
+/** Parse YYYY-MM-DD como data local (sem fuso UTC) */
+export function parseLocalDate(iso: string): Date {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/** Exibe YYYY-MM-DD no formato dd/mm/aaaa sem deslocamento de fuso */
+export function formatDateBR(iso: string): string {
+  return parseLocalDate(iso).toLocaleDateString("pt-BR");
+}
+
+const MESES_PT = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** Exibe competência (YYYY-MM-01) como "Maio/2026" */
+export function formatCompetenceBR(iso: string): string {
+  const [y, m] = iso.slice(0, 7).split("-").map(Number);
+  return `${MESES_PT[(m ?? 1) - 1]}/${y}`;
 }
 
 /** Adiciona N meses a um YYYY-MM-DD, retornando YYYY-MM-01 */

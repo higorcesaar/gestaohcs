@@ -17,7 +17,7 @@ import { Trash2, Plus, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import {
   KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
-  computeCompetenceMonth, addMonths,
+  computeCompetenceMonth, addMonths, formatDateBR, formatCompetenceBR,
 } from "@/lib/finance-constants";
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
@@ -64,7 +64,10 @@ function Lancamentos() {
   const [cardId, setCardId] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  });
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
   const [status, setStatus] = useState<"pendente" | "pago">("pendente");
@@ -236,7 +239,7 @@ function Lancamentos() {
                   [],
                 );
                 const shifted = preview !== base;
-                const label = new Date(preview).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+                const label = formatCompetenceBR(preview);
                 return (
                   <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
                     Competência: <span className="capitalize font-medium">{label}</span>
@@ -348,10 +351,10 @@ function Lancamentos() {
                   return (
                   <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                     <TableCell className="whitespace-nowrap">
-                      {new Date(t.occurred_on).toLocaleDateString("pt-BR")}
+                      {formatDateBR(t.occurred_on)}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground capitalize">
-                      {new Date(t.competence_month).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatCompetenceBR(t.competence_month)}
                     </TableCell>
                     <TableCell><Badge variant="secondary">{kindLabel(t.kind)}</Badge></TableCell>
                     <TableCell>
