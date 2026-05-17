@@ -199,7 +199,7 @@ function computeCompetenceMonth(
   if (paymentMethod === "Crédito" && closingDay) {
     const [y, m, d] = occurredOn.split("-").map(Number);
     let year = y, month = m;
-    if (d > closingDay) { month += 1; if (month > 12) { month = 1; year += 1; } }
+    if (d >= closingDay - 1) { month += 1; if (month > 12) { month = 1; year += 1; } }
     base = `${year}-${String(month).padStart(2, "0")}-01`;
   } else {
     base = monthStart(occurredOn);
