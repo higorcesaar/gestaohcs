@@ -14,7 +14,7 @@ import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
-import { formatBRL } from "@/lib/finance-constants";
+import { formatBRL, formatDateBR, parseLocalDate } from "@/lib/finance-constants";
 import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
