@@ -17,7 +17,7 @@ import { Trash2, Plus, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import {
   KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
-  computeCompetenceMonth, addMonths,
+  computeCompetenceMonth, addMonths, formatDateBR, formatCompetenceBR,
 } from "@/lib/finance-constants";
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
