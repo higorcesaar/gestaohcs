@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listUsers, createUser, listAllowedEmails, addAllowedEmail, removeAllowedEmail,
@@ -25,7 +26,7 @@ interface UserRow { id: string; email: string; display_name: string | null; crea
 interface AllowedRow { email: string; is_admin: boolean; created_at: string }
 
 function UsuariosPage() {
-  const { role, loading } = useAuth();
+  const { role, loading, user } = useAuth();
   const fetchUsers = useServerFn(listUsers);
   const fetchAllowed = useServerFn(listAllowedEmails);
   const doCreate = useServerFn(createUser);
@@ -43,6 +44,21 @@ function UsuariosPage() {
 
   const [allowEmail, setAllowEmail] = useState("");
   const [allowAdmin, setAllowAdmin] = useState(false);
+
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+
+  async function onChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
+    if (newPwd !== confirmPwd) return toast.error("As senhas não coincidem");
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password: newPwd });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Senha alterada com sucesso");
+    setNewPwd(""); setConfirmPwd("");
+  }
 
   async function refresh() {
     try {
@@ -99,6 +115,26 @@ function UsuariosPage() {
         <h1 className="text-3xl font-semibold">Usuários</h1>
         <p className="text-muted-foreground">Gerencie quem tem acesso ao sistema.</p>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Alterar minha senha</CardTitle>
+          {user?.email && <p className="text-xs text-muted-foreground">{user.email}</p>}
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onChangePassword} className="grid gap-3 md:grid-cols-3 md:items-end">
+            <div className="space-y-1.5">
+              <Label>Nova senha</Label>
+              <Input type="password" minLength={8} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Confirmar senha</Label>
+              <Input type="password" minLength={8} value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} required />
+            </div>
+            <Button type="submit" disabled={busy}>Alterar senha</Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

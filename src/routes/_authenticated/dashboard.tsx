@@ -113,9 +113,24 @@ function Dashboard() {
     return visibleCards.map((c) => {
       const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
       const total = items.reduce((s, t) => s + Number(t.amount), 0);
-      return { card: c, total, count: items.length };
+      const paidCount = items.filter((t) => t.status === "pago").length;
+      const allPaid = items.length > 0 && paidCount === items.length;
+      return { card: c, total, count: items.length, paidCount, allPaid, items };
     });
   }, [visibleCards, tx]);
+
+  async function toggleCardStatus(cardId: string, markAs: "pago" | "pendente") {
+    const target = cardTotals.find((c) => c.card.id === cardId);
+    if (!target || target.items.length === 0) return;
+    const ids = target.items.map((t) => t.id);
+    setTx((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, status: markAs } : x));
+    const { error } = await supabase
+      .from("transactions")
+      .update({ status: markAs })
+      .in("id", ids);
+    if (error) { toast.error(error.message); refresh(); return; }
+    toast.success(markAs === "pago" ? "Fatura marcada como paga" : "Fatura marcada como pendente");
+  }
 
   const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
   const sumPaid = (k: string) =>
@@ -412,39 +427,68 @@ function Dashboard() {
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {cardTotals.map(({ card, total, count }) => {
+            {cardTotals.map(({ card, total, count, paidCount, allPaid }) => {
               const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
               return (
-                <button
+                <div
                   key={card.id}
-                  type="button"
-                  onClick={() => setDetailCardId(card.id)}
-                  className="group relative overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-lg hover:scale-[1.02]"
+                  className="group relative overflow-hidden rounded-xl border text-left transition-all hover:shadow-lg"
                   style={{ background: brand.gradient, borderColor: brand.border }}
                 >
-                  <div className="flex items-start justify-between text-white/95">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="rounded-md bg-white/15 p-1.5 backdrop-blur-sm">
-                        <CreditCard className="size-4" />
+                  <button
+                    type="button"
+                    onClick={() => setDetailCardId(card.id)}
+                    className="w-full p-4 text-left"
+                  >
+                    <div className="flex items-start justify-between text-white/95">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="rounded-md bg-white/15 p-1.5 backdrop-blur-sm">
+                          <CreditCard className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate">{card.name}</div>
+                          <div className="text-[11px] uppercase tracking-wider opacity-80">
+                            {card.bank} · fecha dia {card.closing_day}
+                          </div>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold truncate">{card.name}</div>
-                        <div className="text-[11px] uppercase tracking-wider opacity-80">{card.bank}</div>
+                      {card.titular && (
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                          {card.titular}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-4 text-white">
+                      <div className={`text-2xl font-bold tracking-tight ${allPaid ? "line-through opacity-70" : ""}`}>
+                        {formatBRL(total)}
+                      </div>
+                      <div className="text-[11px] opacity-80">
+                        {count} {count === 1 ? "lançamento" : "lançamentos"} · venc. dia {card.due_day}
+                        {count > 0 && ` · ${paidCount}/${count} pagos`}
                       </div>
                     </div>
-                    {card.titular && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
-                        {card.titular}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-4 text-white">
-                    <div className="text-2xl font-bold tracking-tight">{formatBRL(total)}</div>
-                    <div className="text-[11px] opacity-80">
-                      {count} {count === 1 ? "lançamento" : "lançamentos"} · venc. dia {card.due_day}
+                  </button>
+                  {count > 0 && (
+                    <div className="flex items-stretch border-t border-white/20 text-[11px] font-medium text-white">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleCardStatus(card.id, "pago"); }}
+                        disabled={allPaid}
+                        className="flex-1 py-2 inline-flex items-center justify-center gap-1 bg-emerald-600/30 hover:bg-emerald-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <CheckCircle2 className="size-3" /> Pago
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleCardStatus(card.id, "pendente"); }}
+                        disabled={paidCount === 0}
+                        className="flex-1 py-2 inline-flex items-center justify-center gap-1 bg-amber-500/30 hover:bg-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-l border-white/20"
+                      >
+                        <Circle className="size-3" /> Pendente
+                      </button>
                     </div>
-                  </div>
-                </button>
+                  )}
+                </div>
               );
             })}
           </div>
