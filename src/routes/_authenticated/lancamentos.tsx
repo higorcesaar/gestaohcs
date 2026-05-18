@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import {
   KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
   computeCompetenceMonth, addMonths, formatDateBR, formatCompetenceBR,
+  computeDueDate,
 } from "@/lib/finance-constants";
+
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
@@ -71,6 +73,8 @@ function Lancamentos() {
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
   const [status, setStatus] = useState<"pendente" | "pago">("pendente");
+  const [search, setSearch] = useState("");
+  const [competenceFilter, setCompetenceFilter] = useState<string>("all");
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
   const { closedMonths } = useClosedMonths();
@@ -193,6 +197,34 @@ function Lancamentos() {
 
   const showInstallments = kind === "parcelamento";
 
+  const cardNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of cards) m[c.id] = `${c.name} (${c.bank})`;
+    return m;
+  }, [cards]);
+
+  const competenceOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of list) set.add(t.competence_month);
+    return Array.from(set).sort().reverse();
+  }, [list]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return list.filter((t) => {
+      if (competenceFilter !== "all" && t.competence_month !== competenceFilter) return false;
+      // regra: parcelas > 1 só aparecem quando filtrando pela sua competência
+      if (competenceFilter === "all" && t.installment_no && t.installment_no > 1) return false;
+      if (!q) return true;
+      const cardName = t.card_id ? cardNameById[t.card_id] ?? "" : "";
+      const haystack = [
+        t.description ?? "", t.category ?? "", t.bank ?? "",
+        cardName, String(t.amount), formatBRL(Number(t.amount)),
+      ].join(" ").toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [list, search, competenceFilter, cardNameById]);
+
   return (
     <div className="space-y-8">
       <header>
@@ -240,11 +272,20 @@ function Lancamentos() {
                 );
                 const shifted = preview !== base;
                 const label = formatCompetenceBR(preview);
+                const due = payment === "Crédito" && sel?.due_day
+                  ? computeDueDate(preview, sel.due_day) : null;
                 return (
-                  <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-                    Competência: <span className="capitalize font-medium">{label}</span>
-                    {shifted ? " · mês anterior já fechado" : ""}
-                  </p>
+                  <div className="space-y-0.5">
+                    <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                      Competência: <span className="capitalize font-medium">{label}</span>
+                      {shifted ? " · mês anterior já fechado" : ""}
+                    </p>
+                    {due && (
+                      <p className="text-xs text-muted-foreground">
+                        Vencimento: <span className="font-medium">{formatDateBR(due)}</span>
+                      </p>
+                    )}
+                  </div>
                 );
               })()}
             </Field>
@@ -325,11 +366,27 @@ function Lancamentos() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">Histórico</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+            <Input
+              placeholder="Buscar por descrição, categoria, valor ou cartão…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Select value={competenceFilter} onValueChange={setCompetenceFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as competências</SelectItem>
+                {competenceOptions.map((c) => (
+                  <SelectItem key={c} value={c}>{formatCompetenceBR(c)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : list.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum lançamento ainda.</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -340,14 +397,16 @@ function Lancamentos() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Titular</TableHead>
                   <TableHead>Pagamento</TableHead>
+                  <TableHead>Cartão / Banco</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((t) => {
+                {filtered.map((t) => {
                   const isPago = t.status === "pago";
+                  const cardLabel = t.card_id ? cardNameById[t.card_id] : t.bank;
                   return (
                   <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                     <TableCell className="whitespace-nowrap">
@@ -364,9 +423,13 @@ function Lancamentos() {
                           ({t.installment_no}/{t.installments_total})
                         </span>
                       )}
+                      {t.description && (
+                        <div className="text-xs text-muted-foreground">{t.description}</div>
+                      )}
                     </TableCell>
                     <TableCell>{t.titular ?? "—"}</TableCell>
                     <TableCell>{t.payment_method ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{cardLabel ?? "—"}</TableCell>
                     <TableCell>
                       <button
                         type="button"
