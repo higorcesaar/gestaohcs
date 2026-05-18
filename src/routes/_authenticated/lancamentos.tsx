@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import {
   KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
   computeCompetenceMonth, addMonths, formatDateBR, formatCompetenceBR,
+  computeDueDate,
 } from "@/lib/finance-constants";
+import { useMemo } from "react";
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
