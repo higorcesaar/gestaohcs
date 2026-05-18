@@ -397,14 +397,16 @@ function Lancamentos() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Titular</TableHead>
                   <TableHead>Pagamento</TableHead>
+                  <TableHead>Cartão / Banco</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((t) => {
+                {filtered.map((t) => {
                   const isPago = t.status === "pago";
+                  const cardLabel = t.card_id ? cardNameById[t.card_id] : t.bank;
                   return (
                   <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
                     <TableCell className="whitespace-nowrap">
@@ -421,9 +423,13 @@ function Lancamentos() {
                           ({t.installment_no}/{t.installments_total})
                         </span>
                       )}
+                      {t.description && (
+                        <div className="text-xs text-muted-foreground">{t.description}</div>
+                      )}
                     </TableCell>
                     <TableCell>{t.titular ?? "—"}</TableCell>
                     <TableCell>{t.payment_method ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{cardLabel ?? "—"}</TableCell>
                     <TableCell>
                       <button
                         type="button"
