@@ -197,6 +197,34 @@ function Lancamentos() {
 
   const showInstallments = kind === "parcelamento";
 
+  const cardNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of cards) m[c.id] = `${c.name} (${c.bank})`;
+    return m;
+  }, [cards]);
+
+  const competenceOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of list) set.add(t.competence_month);
+    return Array.from(set).sort().reverse();
+  }, [list]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return list.filter((t) => {
+      if (competenceFilter !== "all" && t.competence_month !== competenceFilter) return false;
+      // regra: parcelas > 1 só aparecem quando filtrando pela sua competência
+      if (competenceFilter === "all" && t.installment_no && t.installment_no > 1) return false;
+      if (!q) return true;
+      const cardName = t.card_id ? cardNameById[t.card_id] ?? "" : "";
+      const haystack = [
+        t.description ?? "", t.category ?? "", t.bank ?? "",
+        cardName, String(t.amount), formatBRL(Number(t.amount)),
+      ].join(" ").toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [list, search, competenceFilter, cardNameById]);
+
   return (
     <div className="space-y-8">
       <header>
