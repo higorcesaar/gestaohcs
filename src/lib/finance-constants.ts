@@ -58,8 +58,14 @@ export function computeCompetenceMonth(
   let base: string;
   if (paymentMethod === "Crédito" && closingDay) {
     const [y, m, d] = occurredOn.split("-").map(Number);
+    // Simula +1 dia de processamento da bandeira (sem fuso horário)
+    const processed = new Date(y, m - 1, d);
+    processed.setDate(processed.getDate() + 1);
+    const processedDay = Number(processed.getDate());
+    const closing = Number(closingDay);
     let year = y, month = m;
-    if (d >= closingDay - 1) {
+    // Se o dia processado >= dia de fechamento, joga para M+1 em relação à compra
+    if (processedDay >= closing) {
       month += 1;
       if (month > 12) { month = 1; year += 1; }
     }
