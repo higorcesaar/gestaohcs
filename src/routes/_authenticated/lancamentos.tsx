@@ -338,11 +338,27 @@ function Lancamentos() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">Histórico</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+            <Input
+              placeholder="Buscar por descrição, categoria, valor ou cartão…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Select value={competenceFilter} onValueChange={setCompetenceFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as competências</SelectItem>
+                {competenceOptions.map((c) => (
+                  <SelectItem key={c} value={c}>{formatCompetenceBR(c)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : list.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum lançamento ainda.</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>
           ) : (
             <Table>
               <TableHeader>
