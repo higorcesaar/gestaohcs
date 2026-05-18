@@ -244,11 +244,20 @@ function Lancamentos() {
                 );
                 const shifted = preview !== base;
                 const label = formatCompetenceBR(preview);
+                const due = payment === "Crédito" && sel?.due_day
+                  ? computeDueDate(preview, sel.due_day) : null;
                 return (
-                  <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-                    Competência: <span className="capitalize font-medium">{label}</span>
-                    {shifted ? " · mês anterior já fechado" : ""}
-                  </p>
+                  <div className="space-y-0.5">
+                    <p className={`text-xs ${shifted ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                      Competência: <span className="capitalize font-medium">{label}</span>
+                      {shifted ? " · mês anterior já fechado" : ""}
+                    </p>
+                    {due && (
+                      <p className="text-xs text-muted-foreground">
+                        Vencimento: <span className="font-medium">{formatDateBR(due)}</span>
+                      </p>
+                    )}
+                  </div>
                 );
               })()}
             </Field>
