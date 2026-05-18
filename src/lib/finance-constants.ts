@@ -95,6 +95,27 @@ export function formatCompetenceBR(iso: string): string {
   return `${MESES_PT[(m ?? 1) - 1]}/${y}`;
 }
 
+/**
+ * Calcula a data real de vencimento da fatura combinando o ano/mês da
+ * competência (YYYY-MM-01) com o `dueDay` do cartão. Se cair em sábado,
+ * empurra +2 dias; se cair em domingo, +1 dia (vai para segunda-feira).
+ * Retorna YYYY-MM-DD.
+ */
+export function computeDueDate(competenceMonth: string, dueDay: number): string {
+  const [y, m] = competenceMonth.slice(0, 7).split("-").map(Number);
+  // limita ao último dia do mês para evitar overflow (ex: dia 31 em fev)
+  const lastDay = new Date(y, m, 0).getDate();
+  const day = Math.min(dueDay, lastDay);
+  const d = new Date(y, m - 1, day);
+  const dow = d.getDay(); // 0=Dom, 6=Sáb
+  if (dow === 6) d.setDate(d.getDate() + 2);
+  else if (dow === 0) d.setDate(d.getDate() + 1);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /** Adiciona N meses a um YYYY-MM-DD, retornando YYYY-MM-01 */
 export function addMonths(iso: string, n: number): string {
   const [y, m] = iso.split("-").map(Number);
