@@ -73,6 +73,8 @@ function Lancamentos() {
   const [instTotal, setInstTotal] = useState("");
   const [instNo, setInstNo] = useState("");
   const [status, setStatus] = useState<"pendente" | "pago">("pendente");
+  const [search, setSearch] = useState("");
+  const [competenceFilter, setCompetenceFilter] = useState<string>("all");
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
   const { closedMonths } = useClosedMonths();
