@@ -198,8 +198,12 @@ function computeCompetenceMonth(
   let base: string;
   if (paymentMethod === "Crédito" && closingDay) {
     const [y, m, d] = occurredOn.split("-").map(Number);
+    const processed = new Date(y, m - 1, d);
+    processed.setDate(processed.getDate() + 1);
+    const processedDay = Number(processed.getDate());
+    const closing = Number(closingDay);
     let year = y, month = m;
-    if (d >= closingDay - 1) { month += 1; if (month > 12) { month = 1; year += 1; } }
+    if (processedDay >= closing) { month += 1; if (month > 12) { month = 1; year += 1; } }
     base = `${year}-${String(month).padStart(2, "0")}-01`;
   } else {
     base = monthStart(occurredOn);
