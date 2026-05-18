@@ -20,7 +20,7 @@ import {
   computeCompetenceMonth, addMonths, formatDateBR, formatCompetenceBR,
   computeDueDate,
 } from "@/lib/finance-constants";
-import { useMemo } from "react";
+
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
