@@ -263,11 +263,11 @@ function Lancamentos() {
               {(() => {
                 const sel = cards.find((c) => c.id === cardId) ?? null;
                 const preview = computeCompetenceMonth(
-                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  date, payment, payment === "Crédito" ? sel : null,
                   closedMonths,
                 );
                 const base = computeCompetenceMonth(
-                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  date, payment, payment === "Crédito" ? sel : null,
                   [],
                 );
                 const shifted = preview !== base;
