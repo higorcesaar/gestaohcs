@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/cartoes")({
 
 interface CardRow {
   id: string; name: string; bank: string; closing_day: number; due_day: number; titular: string | null;
+  dias_antecedencia_fechamento: number;
 }
 
 function Cartoes() {
