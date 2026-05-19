@@ -32,6 +32,7 @@ function Cartoes() {
   const [bank, setBank] = useState("NUBANK");
   const [closingDay, setClosingDay] = useState("");
   const [dueDay, setDueDay] = useState("");
+  const [diasAntec, setDiasAntec] = useState("7");
   const [titular, setTitular] = useState("");
 
   async function load() {
