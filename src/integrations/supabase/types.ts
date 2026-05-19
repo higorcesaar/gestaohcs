@@ -40,6 +40,7 @@ export type Database = {
           bank: string
           closing_day: number
           created_at: string
+          dias_antecedencia_fechamento: number
           due_day: number
           id: string
           name: string
@@ -51,6 +52,7 @@ export type Database = {
           bank: string
           closing_day: number
           created_at?: string
+          dias_antecedencia_fechamento?: number
           due_day: number
           id?: string
           name: string
@@ -62,6 +64,7 @@ export type Database = {
           bank?: string
           closing_day?: number
           created_at?: string
+          dias_antecedencia_fechamento?: number
           due_day?: number
           id?: string
           name?: string
