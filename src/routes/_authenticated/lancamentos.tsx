@@ -124,7 +124,7 @@ function Lancamentos() {
     }
 
     const baseCompetence = computeCompetenceMonth(
-      date, payment, payment === "Crédito" ? selectedCard?.closing_day ?? null : null,
+      date, payment, payment === "Crédito" ? selectedCard : null,
       closedMonths,
     );
 
