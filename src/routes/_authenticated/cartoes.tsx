@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/cartoes")({
 
 interface CardRow {
   id: string; name: string; bank: string; closing_day: number; due_day: number; titular: string | null;
+  dias_antecedencia_fechamento: number;
 }
 
 function Cartoes() {
@@ -31,6 +32,7 @@ function Cartoes() {
   const [bank, setBank] = useState("NUBANK");
   const [closingDay, setClosingDay] = useState("");
   const [dueDay, setDueDay] = useState("");
+  const [diasAntec, setDiasAntec] = useState("7");
   const [titular, setTitular] = useState("");
 
   async function load() {
@@ -44,16 +46,19 @@ function Cartoes() {
     if (!user) return;
     const cd = Number(closingDay);
     const dd = Number(dueDay);
+    const da = Number(diasAntec) || 7;
     if (!name.trim() || !bank || !cd || !dd) return toast.error("Preencha todos os campos");
     if (cd < 1 || cd > 31 || dd < 1 || dd > 31) return toast.error("Dia deve estar entre 1 e 31");
+    if (da < 1 || da > 28) return toast.error("Dias de antecedência deve estar entre 1 e 28");
 
     const { error } = await supabase.from("cards").insert({
       user_id: user.id, name: name.trim(), bank, closing_day: cd, due_day: dd,
+      dias_antecedencia_fechamento: da,
       titular: titular || null,
     });
     if (error) return toast.error(error.message);
     toast.success("Cartão cadastrado");
-    setName(""); setClosingDay(""); setDueDay(""); setTitular("");
+    setName(""); setClosingDay(""); setDueDay(""); setDiasAntec("7"); setTitular("");
     load();
   }
 
@@ -103,6 +108,11 @@ function Cartoes() {
             <div className="space-y-1.5">
               <Label>Dia de vencimento</Label>
               <Input type="number" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dias de antecedência do fechamento</Label>
+              <Input type="number" min={1} max={28} value={diasAntec} onChange={(e) => setDiasAntec(e.target.value)} placeholder="7" />
+              <p className="text-[11px] text-muted-foreground">Distância em dias entre vencimento e fechamento (Inter = 7).</p>
             </div>
             <div className="flex items-end">
               <Button type="submit" className="w-full">Cadastrar</Button>

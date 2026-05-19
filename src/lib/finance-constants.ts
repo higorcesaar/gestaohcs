@@ -39,33 +39,61 @@ export function monthStart(iso: string): string {
 }
 
 /**
- * Regime de caixa para crédito.
- * Regra estrita: se `dia da compra >= (dia_fechamento - 1)`, a compra cai na
- * fatura do mês seguinte (M+1). Caso contrário, fica no mês corrente.
+ * Regime de caixa para crédito (regra real Banco Inter e similares):
+ *  - fechamento = (due_day − dias_antecedencia). Se ≤ 0, recua para o mês
+ *    anterior (ex.: due=7, dias=7 → fechamento dia 30/31 do mês anterior).
+ *  - Margem D-1: compras feitas na véspera ou no dia do fechamento são
+ *    empurradas para a fatura subsequente (cutoff = closing − 1).
+ *
  * Demais formas de pagamento → mês de occurredOn.
  * Se o mês calculado estiver em `closedMonths` (fatura paga), empurra para o
  * próximo mês aberto.
  *
  * IMPORTANTE: occurredOn é tratado como string local YYYY-MM-DD —
- * nunca passa por `new Date()` para evitar deslocamento de fuso.
+ * nunca passa por `new Date(iso)` para evitar deslocamento de fuso.
  */
 export function computeCompetenceMonth(
   occurredOn: string,
   paymentMethod: string | null | undefined,
-  closingDay: number | null | undefined,
+  card: {
+    due_day?: number | null;
+    dias_antecedencia_fechamento?: number | null;
+    closing_day?: number | null;
+  } | number | null | undefined,
   closedMonths: string[] = [],
 ): string {
+  // Aceita o objeto cartão ou (legado) só o closing_day numérico
+  const cardObj = typeof card === "number"
+    ? { closing_day: card, due_day: null, dias_antecedencia_fechamento: 7 }
+    : (card ?? null);
+
   let base: string;
-  if (paymentMethod === "Crédito" && closingDay) {
+  const hasCardData = cardObj && (cardObj.due_day || cardObj.closing_day);
+  if (paymentMethod === "Crédito" && hasCardData) {
     const [y, m, d] = occurredOn.split("-").map(Number);
-    // Simula +1 dia de processamento da bandeira (sem fuso horário)
-    const processed = new Date(y, m - 1, d);
-    processed.setDate(processed.getDate() + 1);
-    const processedDay = Number(processed.getDate());
-    const closing = Number(closingDay);
+    const purchase = new Date(y, m - 1, d);
+    const dueDay = Number(cardObj!.due_day ?? 0);
+    const dias = Number(cardObj!.dias_antecedencia_fechamento ?? 7);
+
     let year = y, month = m;
-    // Se o dia processado >= dia de fechamento, joga para M+1 em relação à compra
-    if (processedDay >= closing) {
+    for (let i = 0; i < 4; i++) {
+      // Data de fechamento da fatura (year/month)
+      let cYear = year, cMonth = month, cDay: number;
+      if (dueDay > 0) {
+        cDay = dueDay - dias;
+        if (cDay <= 0) {
+          cMonth -= 1;
+          if (cMonth < 1) { cMonth = 12; cYear -= 1; }
+          const daysPrev = new Date(cYear, cMonth, 0).getDate();
+          cDay = daysPrev + cDay; // cDay ≤ 0 → soma efetivamente recua
+        }
+      } else {
+        cDay = Number(cardObj!.closing_day ?? 0);
+      }
+      const closingDate = new Date(cYear, cMonth - 1, cDay);
+      const cutoff = new Date(closingDate);
+      cutoff.setDate(cutoff.getDate() - 1); // D-1 (véspera também empurra)
+      if (purchase < cutoff) break;
       month += 1;
       if (month > 12) { month = 1; year += 1; }
     }
@@ -74,7 +102,6 @@ export function computeCompetenceMonth(
     base = monthStart(occurredOn);
   }
   const closed = new Set(closedMonths);
-  // safety bound to prevent infinite loops
   for (let i = 0; i < 24 && closed.has(base); i++) base = addMonths(base, 1);
   return base;
 }

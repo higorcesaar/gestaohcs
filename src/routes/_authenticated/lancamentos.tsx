@@ -48,6 +48,7 @@ interface Tx {
 
 interface CardRow {
   id: string; name: string; bank: string; closing_day: number; due_day: number; titular: string | null;
+  dias_antecedencia_fechamento?: number | null;
 }
 
 function Lancamentos() {
@@ -124,7 +125,7 @@ function Lancamentos() {
     }
 
     const baseCompetence = computeCompetenceMonth(
-      date, payment, payment === "Crédito" ? selectedCard?.closing_day ?? null : null,
+      date, payment, payment === "Crédito" ? selectedCard : null,
       closedMonths,
     );
 
@@ -263,11 +264,11 @@ function Lancamentos() {
               {(() => {
                 const sel = cards.find((c) => c.id === cardId) ?? null;
                 const preview = computeCompetenceMonth(
-                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  date, payment, payment === "Crédito" ? sel : null,
                   closedMonths,
                 );
                 const base = computeCompetenceMonth(
-                  date, payment, payment === "Crédito" ? sel?.closing_day ?? null : null,
+                  date, payment, payment === "Crédito" ? sel : null,
                   [],
                 );
                 const shifted = preview !== base;
