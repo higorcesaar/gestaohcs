@@ -288,7 +288,7 @@ async function tryCreateTransaction(
   const titular = fields["titular"] || null;
   let bank = fields["banco"] || null;
   let cardId: string | null = null;
-  let closingDay: number | null = null;
+  let cardForCompetence: { due_day?: number | null; dias_antecedencia_fechamento?: number | null; closing_day?: number | null } | null = null;
 
   // Match cartão por nome OU banco
   if (paymentMethod === "Crédito" || paymentMethod === "Débito") {
@@ -298,14 +298,24 @@ async function tryCreateTransaction(
       if (titular && c.titular && c.titular !== titular) return false;
       return needle && (normalize(c.name).includes(needle) || normalize(c.bank).includes(needle));
     });
-    if (match) { cardId = match.id; bank = match.bank; if (paymentMethod === "Crédito") closingDay = match.closing_day; }
+    if (match) {
+      cardId = match.id;
+      bank = match.bank;
+      if (paymentMethod === "Crédito") {
+        cardForCompetence = {
+          due_day: match.due_day,
+          dias_antecedencia_fechamento: (match as { dias_antecedencia_fechamento?: number | null }).dias_antecedencia_fechamento ?? 7,
+          closing_day: match.closing_day,
+        };
+      }
+    }
   }
 
   const { data: closedRows } = await admin
     .from("closed_months").select("competence_month").eq("user_id", userId);
   const closedMonths = (closedRows ?? []).map((r) => r.competence_month as string);
 
-  const competence_month = computeCompetenceMonth(occurred_on, paymentMethod, closingDay, closedMonths);
+  const competence_month = computeCompetenceMonth(occurred_on, paymentMethod, cardForCompetence, closedMonths);
 
   const { error } = await admin.from("transactions").insert({
     user_id: userId, kind, category, amount, occurred_on, competence_month,
