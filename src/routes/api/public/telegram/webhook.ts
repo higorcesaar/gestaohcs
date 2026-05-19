@@ -192,18 +192,38 @@ function addMonth(iso: string): string {
   return `${ny}-${String(nm).padStart(2, "0")}-01`;
 }
 function computeCompetenceMonth(
-  occurredOn: string, paymentMethod: string | null, closingDay: number | null,
+  occurredOn: string, paymentMethod: string | null,
+  card: { due_day?: number | null; dias_antecedencia_fechamento?: number | null; closing_day?: number | null } | null,
   closedMonths: string[] = [],
 ): string {
   let base: string;
-  if (paymentMethod === "Crédito" && closingDay) {
+  const hasCard = card && (card.due_day || card.closing_day);
+  if (paymentMethod === "Crédito" && hasCard) {
     const [y, m, d] = occurredOn.split("-").map(Number);
-    const processed = new Date(y, m - 1, d);
-    processed.setDate(processed.getDate() + 1);
-    const processedDay = Number(processed.getDate());
-    const closing = Number(closingDay);
+    const purchase = new Date(y, m - 1, d);
+    const dueDay = Number(card!.due_day ?? 0);
+    const dias = Number(card!.dias_antecedencia_fechamento ?? 7);
     let year = y, month = m;
-    if (processedDay >= closing) { month += 1; if (month > 12) { month = 1; year += 1; } }
+    for (let i = 0; i < 4; i++) {
+      let cYear = year, cMonth = month, cDay: number;
+      if (dueDay > 0) {
+        cDay = dueDay - dias;
+        if (cDay <= 0) {
+          cMonth -= 1;
+          if (cMonth < 1) { cMonth = 12; cYear -= 1; }
+          const daysPrev = new Date(cYear, cMonth, 0).getDate();
+          cDay = daysPrev + cDay;
+        }
+      } else {
+        cDay = Number(card!.closing_day ?? 0);
+      }
+      const closingDate = new Date(cYear, cMonth - 1, cDay);
+      const cutoff = new Date(closingDate);
+      cutoff.setDate(cutoff.getDate() - 1);
+      if (purchase < cutoff) break;
+      month += 1;
+      if (month > 12) { month = 1; year += 1; }
+    }
     base = `${year}-${String(month).padStart(2, "0")}-01`;
   } else {
     base = monthStart(occurredOn);
