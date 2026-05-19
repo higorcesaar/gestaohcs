@@ -109,6 +109,11 @@ function Cartoes() {
               <Label>Dia de vencimento</Label>
               <Input type="number" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
             </div>
+            <div className="space-y-1.5">
+              <Label>Dias de antecedência do fechamento</Label>
+              <Input type="number" min={1} max={28} value={diasAntec} onChange={(e) => setDiasAntec(e.target.value)} placeholder="7" />
+              <p className="text-[11px] text-muted-foreground">Distância em dias entre vencimento e fechamento (Inter = 7).</p>
+            </div>
             <div className="flex items-end">
               <Button type="submit" className="w-full">Cadastrar</Button>
             </div>
