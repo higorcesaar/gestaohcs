@@ -46,16 +46,19 @@ function Cartoes() {
     if (!user) return;
     const cd = Number(closingDay);
     const dd = Number(dueDay);
+    const da = Number(diasAntec) || 7;
     if (!name.trim() || !bank || !cd || !dd) return toast.error("Preencha todos os campos");
     if (cd < 1 || cd > 31 || dd < 1 || dd > 31) return toast.error("Dia deve estar entre 1 e 31");
+    if (da < 1 || da > 28) return toast.error("Dias de antecedência deve estar entre 1 e 28");
 
     const { error } = await supabase.from("cards").insert({
       user_id: user.id, name: name.trim(), bank, closing_day: cd, due_day: dd,
+      dias_antecedencia_fechamento: da,
       titular: titular || null,
     });
     if (error) return toast.error(error.message);
     toast.success("Cartão cadastrado");
-    setName(""); setClosingDay(""); setDueDay(""); setTitular("");
+    setName(""); setClosingDay(""); setDueDay(""); setDiasAntec("7"); setTitular("");
     load();
   }
 
