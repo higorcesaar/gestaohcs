@@ -33,6 +33,8 @@ function UsuariosPage() {
   const doCreate = useServerFn(createUser);
   const doAdd = useServerFn(addAllowedEmail);
   const doRemove = useServerFn(removeAllowedEmail);
+  const doChangeOwn = useServerFn(changeOwnPassword);
+  const doChangeUser = useServerFn(changeUserPassword);
 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [allowed, setAllowed] = useState<AllowedRow[]>([]);
