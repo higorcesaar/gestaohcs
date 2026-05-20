@@ -197,7 +197,7 @@ function UsuariosPage() {
             <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado.</p>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papéis</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papéis</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={u.id}>
@@ -207,6 +207,11 @@ function UsuariosPage() {
                       {u.roles.map((r) => (
                         <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>{r}</Badge>
                       ))}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => onResetUserPassword(u.id, u.email)}>
+                        Redefinir senha
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
