@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listUsers, createUser, listAllowedEmails, addAllowedEmail, removeAllowedEmail,
+  changeOwnPassword, changeUserPassword,
 } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,8 @@ function UsuariosPage() {
   const doCreate = useServerFn(createUser);
   const doAdd = useServerFn(addAllowedEmail);
   const doRemove = useServerFn(removeAllowedEmail);
+  const doChangeOwn = useServerFn(changeOwnPassword);
+  const doChangeUser = useServerFn(changeUserPassword);
 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [allowed, setAllowed] = useState<AllowedRow[]>([]);
@@ -53,11 +56,27 @@ function UsuariosPage() {
     if (newPwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
     if (newPwd !== confirmPwd) return toast.error("As senhas não coincidem");
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: newPwd });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Senha alterada com sucesso");
-    setNewPwd(""); setConfirmPwd("");
+    try {
+      await doChangeOwn({ data: { password: newPwd } });
+      toast.success("Senha alterada com sucesso");
+      setNewPwd(""); setConfirmPwd("");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onResetUserPassword(userId: string, email: string) {
+    const pwd = window.prompt(`Nova senha para ${email} (mín. 8 caracteres):`);
+    if (!pwd) return;
+    if (pwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
+    try {
+      await doChangeUser({ data: { user_id: userId, password: pwd } });
+      toast.success("Senha redefinida");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
 
   async function refresh() {
@@ -178,7 +197,7 @@ function UsuariosPage() {
             <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado.</p>
           ) : (
             <Table>
-              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papéis</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papéis</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={u.id}>
@@ -188,6 +207,11 @@ function UsuariosPage() {
                       {u.roles.map((r) => (
                         <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>{r}</Badge>
                       ))}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => onResetUserPassword(u.id, u.email)}>
+                        Redefinir senha
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
