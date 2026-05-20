@@ -56,11 +56,27 @@ function UsuariosPage() {
     if (newPwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
     if (newPwd !== confirmPwd) return toast.error("As senhas não coincidem");
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password: newPwd });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Senha alterada com sucesso");
-    setNewPwd(""); setConfirmPwd("");
+    try {
+      await doChangeOwn({ data: { password: newPwd } });
+      toast.success("Senha alterada com sucesso");
+      setNewPwd(""); setConfirmPwd("");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onResetUserPassword(userId: string, email: string) {
+    const pwd = window.prompt(`Nova senha para ${email} (mín. 8 caracteres):`);
+    if (!pwd) return;
+    if (pwd.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
+    try {
+      await doChangeUser({ data: { user_id: userId, password: pwd } });
+      toast.success("Senha redefinida");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
 
   async function refresh() {
