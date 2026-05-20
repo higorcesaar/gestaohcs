@@ -63,6 +63,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/wFr8vxSGvNWnf8tdRsO5pxxxIa93/social-images/social-1779229262320-Gemini_Generated_Image_mn6o7jmn6o7jmn6o.webp" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#6f8a6a" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Cesar Finanças" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
