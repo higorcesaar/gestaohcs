@@ -99,3 +99,33 @@ export const createUser = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true, user_id: created.user?.id ?? null };
   });
+
+export const changeOwnPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ password: z.string().min(8).max(72) }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
+      password: data.password,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const changeUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      user_id: z.string().uuid(),
+      password: z.string().min(8).max(72),
+    }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      password: data.password,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
