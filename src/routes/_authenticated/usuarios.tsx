@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listUsers, createUser, listAllowedEmails, addAllowedEmail, removeAllowedEmail,
+  changeOwnPassword, changeUserPassword,
 } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
