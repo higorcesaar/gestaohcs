@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedRelatoriosConsolidadosRouteImport } from './routes/_authenticated/relatorios-consolidados'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedOrcamentosRouteImport } from './routes/_authenticated/orcamentos'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedLancamentosRouteImport } from './routes/_authenticated/lancamentos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -56,6 +57,11 @@ const AuthenticatedRelatoriosConsolidadosRoute =
 const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOrcamentosRoute = AuthenticatedOrcamentosRouteImport.update({
+  id: '/orcamentos',
+  path: '/orcamentos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedMetasRoute = AuthenticatedMetasRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/metas': typeof AuthenticatedMetasRoute
+  '/orcamentos': typeof AuthenticatedOrcamentosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/relatorios-consolidados': typeof AuthenticatedRelatoriosConsolidadosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/lancamentos': typeof AuthenticatedLancamentosRoute
   '/metas': typeof AuthenticatedMetasRoute
+  '/orcamentos': typeof AuthenticatedOrcamentosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/relatorios-consolidados': typeof AuthenticatedRelatoriosConsolidadosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/lancamentos': typeof AuthenticatedLancamentosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
+  '/_authenticated/orcamentos': typeof AuthenticatedOrcamentosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/relatorios-consolidados': typeof AuthenticatedRelatoriosConsolidadosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/lancamentos'
     | '/metas'
+    | '/orcamentos'
     | '/relatorios'
     | '/relatorios-consolidados'
     | '/usuarios'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/lancamentos'
     | '/metas'
+    | '/orcamentos'
     | '/relatorios'
     | '/relatorios-consolidados'
     | '/usuarios'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/lancamentos'
     | '/_authenticated/metas'
+    | '/_authenticated/orcamentos'
     | '/_authenticated/relatorios'
     | '/_authenticated/relatorios-consolidados'
     | '/_authenticated/usuarios'
@@ -240,6 +252,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/orcamentos': {
+      id: '/_authenticated/orcamentos'
+      path: '/orcamentos'
+      fullPath: '/orcamentos'
+      preLoaderRoute: typeof AuthenticatedOrcamentosRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/metas': {
       id: '/_authenticated/metas'
       path: '/metas'
@@ -291,6 +310,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLancamentosRoute: typeof AuthenticatedLancamentosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
+  AuthenticatedOrcamentosRoute: typeof AuthenticatedOrcamentosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedRelatoriosConsolidadosRoute: typeof AuthenticatedRelatoriosConsolidadosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
@@ -302,6 +322,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLancamentosRoute: AuthenticatedLancamentosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
+  AuthenticatedOrcamentosRoute: AuthenticatedOrcamentosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedRelatoriosConsolidadosRoute:
     AuthenticatedRelatoriosConsolidadosRoute,
@@ -322,3 +343,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
