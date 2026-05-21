@@ -2,62 +2,6 @@
 @source "../src";
 @import "tw-animate-css";
 
-/* Roboto font import */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  /* Light‑mode palette */
-  --color-background: #ffffff;            /* white background */
-  --color-foreground: #111111;           /* almost black text */
-  --color-card: #ffffff;
-  --color-card-foreground: #111111;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #111111;
-  --color-primary: #34d399;               /* leaf‑green */
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #fbbf24;             /* amber for highlights */
-  --color-secondary-foreground: #111111;
-  --color-muted: #f4f4f5;                /* very light gray */
-  --color-muted-foreground: #6b7280;     /* gray‑500 */
-  --color-accent: #fb8c00;               /* coral/orange */
-  --color-accent-foreground: #ffffff;
-  --color-destructive: #ef4444;           /* soft red */
-  --color-destructive-foreground: #ffffff;
-  --color-success: #10b981;               /* teal‑green */
-  --color-success-foreground: #ffffff;
-  --color-warning: #f59e0b;               /* orange‑warning */
-  --color-warning-foreground: #ffffff;
-  --color-border: #e5e7eb;                /* light border */
-  --color-input: #f9fafb;
-  --color-ring: #a5b4fc;
-  --color-sidebar: #f0f4e8;                /* sage‑light */
-  --color-sidebar-foreground: #111111;
-  --color-sidebar-primary: #34d399;
-  --color-sidebar-primary-foreground: #ffffff;
-  --color-sidebar-accent: #fb8c00;
-  --color-sidebar-accent-foreground: #ffffff;
-  --color-sidebar-border: #d1d5db;
-  --color-sidebar-ring: #a5b4fc;
-}
-
-@layer base {
-  * { border-color: var(--color-border); }
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: 'Roboto', sans-serif;
-    font-feature-settings: "ss01", "cv11";
-  }
-}
-@source "../src";
-@import "tw-animate-css";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

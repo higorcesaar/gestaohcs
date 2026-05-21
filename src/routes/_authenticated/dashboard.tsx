@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,22 +10,16 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip,
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { formatBRL, formatDateBR, parseLocalDate } from "@/lib/finance-constants";
-import {
-  TrendingUp, TrendingDown, Wallet, CreditCard, CalendarClock, Coins,
-  Eye, ChevronRight, ShoppingCart, DollarSign, AlertTriangle, ArrowRight,
-  CheckCircle2, Circle, Landmark, UtensilsCrossed, Car, Home, Zap,
-  ShoppingBag, BookOpen, Music, Smartphone, Heart, Stethoscope, Shirt,
-  Lock, ChevronDown, Calendar, PiggyBank, Target, Plus,
-} from "lucide-react";
+import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins } from "lucide-react";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -42,6 +36,7 @@ interface Tx {
   status: string;
 }
 interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
+interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
 const PIE_COLORS = [
   "oklch(0.55 0.06 150)", "oklch(0.65 0.1 130)", "oklch(0.5 0.1 280)",
@@ -50,60 +45,21 @@ const PIE_COLORS = [
   "oklch(0.5 0.05 250)",
 ];
 
-const CATEGORY_ICONS: Record<string, typeof Wallet> = {
-  Supermercado: ShoppingCart,
-  Mercado: ShoppingCart,
-  Aluguel: Home,
-  Água: Zap,
-  Luz: Zap,
-  Energia: Zap,
-  Internet: Smartphone,
-  Telefone: Smartphone,
-  Transporte: Car,
-  Uber: Car,
-  Combustível: Car,
-  Gasolina: Car,
-  Educação: BookOpen,
-  Escola: BookOpen,
-  Saúde: Heart,
-  Médico: Stethoscope,
-  Farmácia: Heart,
-  Vestuário: Shirt,
-  Roupa: Shirt,
-  Lazer: Music,
-  Restaurante: UtensilsCrossed,
-  Ifood: UtensilsCrossed,
-  Delivery: UtensilsCrossed,
-  Assinatura: BookOpen,
-  Streaming: Music,
-  Freelancer: DollarSign,
-  Salário: DollarSign,
-  Banco: Landmark,
-};
-
-function getCategoryIcon(category: string) {
-  const found = Object.entries(CATEGORY_ICONS).find(([key]) =>
-    category.toLowerCase().includes(key.toLowerCase())
-  );
-  return found ? found[1] : Wallet;
-}
-
 function Dashboard() {
   const now = new Date();
-  const navigate = useNavigate();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
-  const [prevTx, setPrevTx] = useState<Tx[]>([]);
-  const [goals, setGoals] = useState<{ id: string; name: string; target_amount: number; current_amount: number }[]>([]);
+  const [nextTx, setNextTx] = useState<Tx[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
   const [detailKind, setDetailKind] = useState<string | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
-  const [hideSaldo, setHideSaldo] = useState(false);
   const [defaultApplied, setDefaultApplied] = useState(false);
   const { titular } = useTitular();
   const { closedMonths, isClosed, close, reopen, loading: closedLoading } = useClosedMonths();
 
+  // Default: se mês atual está fechado, abre no próximo aberto.
   useEffect(() => {
     if (closedLoading || defaultApplied) return;
     const currIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -122,47 +78,37 @@ function Dashboard() {
   }, [closedLoading, closedMonths, defaultApplied]);
 
   const currentMonthIso = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const prevMonthDate = new Date(year, month - 1, 1);
-  const prevMonthIso = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
   const nextMonthDate = new Date(year, month + 1, 1);
   const nextMonthIso = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
   const currentClosed = isClosed(currentMonthIso);
   const monthLabelShort = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long" });
-  const prevMonthLabel = prevMonthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const nextMonthLabel = nextMonthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
-  const fetchMonth = async (iso: string, signal?: AbortSignal) => {
-    const [y, m] = iso.split("-").map(Number);
-    const start = new Date(y, m - 1, 1).toISOString().slice(0, 10);
-    const end = new Date(y, m, 1).toISOString().slice(0, 10);
+  useEffect(() => {
+    const start = new Date(year, month, 1).toISOString().slice(0, 10);
+    const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+    const endNext = new Date(year, month + 2, 1).toISOString().slice(0, 10);
     let q = supabase.from("transactions")
       .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
-    if (signal) q = q.abortSignal(signal);
     q = applyTitular(q, titular);
-    const { data } = await q;
-    return (data ?? []) as Tx[];
-  };
+    q.then(({ data }) => setTx((data ?? []) as Tx[]));
 
-  useEffect(() => {
-    const ac = new AbortController();
-    const currentIso = currentMonthIso;
-    const prevIso = prevMonthIso;
+    let qn = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
+      .gte("competence_month", end).lt("competence_month", endNext);
+    qn = applyTitular(qn, titular);
+    qn.then(({ data }) => setNextTx((data ?? []) as Tx[]));
 
-    fetchMonth(currentIso, ac.signal).then(setTx);
-    fetchMonth(prevIso, ac.signal).then(setPrevTx);
-
-    supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as { id: string; name: string; target_amount: number; current_amount: number }[]));
+    supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
     supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
-
-    return () => ac.abort();
   }, [year, month, titular]);
 
   const visibleCards = useMemo(
     () => cards.filter((c) => titular === "all" || !c.titular || c.titular === titular),
     [cards, titular],
   );
-
   const cardTotals = useMemo(() => {
     return visibleCards.map((c) => {
       const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
@@ -186,15 +132,17 @@ function Dashboard() {
     toast.success(markAs === "pago" ? "Fatura marcada como paga" : "Fatura marcada como pendente");
   }
 
-  const sumKind = (data: Tx[], k: string) => data.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
-  const sumPaidKind = (data: Tx[], k: string) => data.filter((t) => t.kind === k && t.status === "pago").reduce((s, t) => s + Number(t.amount), 0);
-  const sumPendingKind = (data: Tx[], k: string) => data.filter((t) => t.kind === k && t.status !== "pago").reduce((s, t) => s + Number(t.amount), 0);
+  const sum = (k: string) => tx.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
+  const sumPaid = (k: string) =>
+    tx.filter((t) => t.kind === k && t.status === "pago").reduce((s, t) => s + Number(t.amount), 0);
+  const sumPending = (k: string) =>
+    tx.filter((t) => t.kind === k && t.status !== "pago").reduce((s, t) => s + Number(t.amount), 0);
+  const receitas = sum("receita");
+  const fixos = sum("fixo");
+  const variaveis = sum("variavel");
+  const parcelas = sum("parcelamento");
 
-  const receitas = sumKind(tx, "receita");
-  const fixos = sumKind(tx, "fixo");
-  const variaveis = sumKind(tx, "variavel");
-  const parcelas = sumKind(tx, "parcelamento");
-
+  // Saldo = Receitas - tudo que já foi pago (todas as categorias exceto receita)
   const totalPago = tx
     .filter((t) => t.kind !== "receita" && t.status === "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -202,29 +150,17 @@ function Dashboard() {
     .filter((t) => t.kind !== "receita" && t.status !== "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
   const saldoConta = receitas - totalPago;
-  const totalDespesas = fixos + variaveis + parcelas;
-  const resultadoPrevisto = receitas - totalDespesas;
-
-  const prevReceitas = sumKind(prevTx, "receita");
-  const prevFixos = sumKind(prevTx, "fixo");
-  const prevVariaveis = sumKind(prevTx, "variavel");
-  const prevParcelas = sumKind(prevTx, "parcelamento");
-  const prevTotalDespesas = prevFixos + prevVariaveis + prevParcelas;
-
-  const pctChange = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return Math.round(((current - previous) / previous) * 100);
-  };
-
-  const receitaPct = pctChange(receitas, prevReceitas);
-  const fixosPct = pctChange(fixos, prevFixos);
-  const variaveisPct = pctChange(variaveis, prevVariaveis);
-  const parcelasPct = pctChange(parcelas, prevParcelas);
-  const despesasPct = pctChange(totalDespesas, prevTotalDespesas);
 
   async function refresh() {
-    const d = await fetchMonth(currentMonthIso);
-    setTx(d);
+    const start = new Date(year, month, 1).toISOString().slice(0, 10);
+    const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+    let q = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
+      .gte("competence_month", start).lt("competence_month", end)
+      .order("occurred_on", { ascending: false });
+    q = applyTitular(q, titular);
+    const { data } = await q;
+    setTx((data ?? []) as Tx[]);
   }
 
   async function toggleStatus(t: Tx) {
@@ -264,223 +200,150 @@ function Dashboard() {
     return Object.entries(map).map(([name, value]) => ({ name, value })).slice(0, 5);
   }, [tx]);
 
-  const fixosBarData = useMemo(() => {
-    return fixosByCat.slice(0, 11);
-  }, [fixosByCat]);
+  const parcList = useMemo(() => tx.filter((t) => t.kind === "parcelamento").slice(0, 4), [tx]);
 
-  const recent = tx.slice(0, 5);
+  const weekly = useMemo(() => {
+    const days = new Date(year, month + 1, 0).getDate();
+    const buckets = Array.from({ length: Math.ceil(days / 4) }, (_, i) => ({
+      label: `Sem ${i * 4 + 1}`,
+      Saldo: 0, Fixos: 0, Variáveis: 0, Parcelamentos: 0,
+    }));
+    let acc = 0;
+    tx.slice().sort((a, b) => a.occurred_on.localeCompare(b.occurred_on)).forEach((t) => {
+      const d = parseLocalDate(t.occurred_on).getDate();
+      const idx = Math.floor((d - 1) / 4);
+      const v = Number(t.amount);
+      if (!buckets[idx]) return;
+      if (t.kind === "receita") acc += v;
+      else acc -= v;
+      buckets[idx].Saldo = acc;
+      if (t.kind === "fixo") buckets[idx].Fixos += v;
+      if (t.kind === "variavel") buckets[idx].Variáveis += v;
+      if (t.kind === "parcelamento") buckets[idx].Parcelamentos += v;
+    });
+    return buckets;
+  }, [tx, year, month]);
 
-  const categoriaTotal = useMemo(() => {
+  const topCategories = useMemo(() => {
     const map: Record<string, number> = {};
     tx.filter((t) => t.kind !== "receita").forEach((t) => {
       map[t.category] = (map[t.category] ?? 0) + Number(t.amount);
     });
     return Object.entries(map)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
+      .slice(0, 12)
       .map(([name, value]) => ({ name, value }));
   }, [tx]);
 
-  const categoriaMax = Math.max(...categoriaTotal.map((c) => c.value), 1);
-
-  const parcelasPendentes = useMemo(() => {
-    return tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago");
-  }, [tx]);
-
-  const proximos7Dias = useMemo(() => {
-    const hoje = new Date();
-    const seteDias = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return parcelasPendentes
-      .filter((t) => {
-        const d = parseLocalDate(t.occurred_on);
-        return d >= hoje && d <= seteDias;
-      })
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [parcelasPendentes]);
-
-  const proximos30Dias = useMemo(() => {
-    const hoje = new Date();
-    const trintaDias = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
-    return parcelasPendentes
-      .filter((t) => {
-        const d = parseLocalDate(t.occurred_on);
-        return d > new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000) && d <= trintaDias;
-      })
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [parcelasPendentes]);
-
-  const contasPendentes = tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length;
-
-  const fluxoPorCategoria = useMemo(() => {
-    const map: Record<string, number> = {};
-    tx.filter((t) => t.kind !== "receita").forEach((t) => {
-      const cat = t.kind === "fixo" ? "Gastos Fixos" : t.kind === "variavel" ? "Gastos Variáveis" : "Parcelamentos";
-      map[cat] = (map[cat] ?? 0) + Number(t.amount);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [tx]);
-
-  const cardTotalGeral = cardTotals.reduce((s, c) => s + c.total, 0);
-  const maxCardTotal = Math.max(...cardTotals.map((c) => c.total), 1);
-
+  const recent = tx.slice(0, 6);
   const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-
-  const pctBadge = (pct: number, positiveIsGood = false) => {
-    const isPositive = pct > 0;
-    const isNeutral = pct === 0;
-    const color = isNeutral ? "text-muted-foreground" :
-      positiveIsGood ? (isPositive ? "text-emerald-600" : "text-red-500") :
-      (isPositive ? "text-red-500" : "text-emerald-600");
-    return (
-      <span className={`text-xs font-medium ${color}`}>
-        {isNeutral ? "0%" : isPositive ? `+${pct}%` : `${pct}%`}
-        <span className="text-muted-foreground font-normal"> vs {prevMonthLabel}</span>
-      </span>
-    );
-  };
+  const useBarsForCategories = topCategories.length > 6;
+  const nextOutflow = useMemo(
+    () => nextTx.filter((t) => t.kind !== "receita").reduce((s, t) => s + Number(t.amount), 0),
+    [nextTx],
+  );
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground capitalize">Visão geral do mês de {monthLabel}</p>
+          <h1 className="text-3xl font-semibold">Dashboard</h1>
+          <p className="text-muted-foreground capitalize flex items-center gap-2">
+            {monthLabel}
+            {currentClosed && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="size-3" /> Fatura paga
+              </Badge>
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={currentClosed ? "outline" : "default"}
+            size="sm"
+            onClick={() => currentClosed ? reopen(currentMonthIso) : close(currentMonthIso)}
+            className="gap-2"
+          >
+            {currentClosed ? (
+              <><Lock className="size-4" /> Reabrir fatura de <span className="capitalize">{monthLabelShort}</span></>
+            ) : (
+              <><CheckCircle2 className="size-4" /> Marcar fatura de <span className="capitalize">{monthLabelShort}</span> como paga</>
+            )}
+          </Button>
           <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
-      </div>
+      </header>
 
-      {/* Row 1: Saldo atual - full width */}
-      <Card className="border-border/40 shadow-sm">
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-            <div className="flex-1 space-y-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setHideSaldo(!hideSaldo)}
-                  className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
-                >
-                  <Eye className="size-5" />
-                </button>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Saldo atual</span>
-                    {receitaPct !== 0 && (
-                      <Badge variant="secondary" className="text-[11px] font-normal gap-1 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15">
-                        <TrendingUp className="size-3" />
-                        {receitaPct > 0 ? "+" : ""}{receitaPct}% em relação a {prevMonthLabel}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className={`text-4xl font-bold tracking-tight ${hideSaldo ? "blur-lg select-none" : ""} ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
-                    {formatBRL(saldoConta)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Receitas</span>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="size-4 text-emerald-500" />
-                    <span className="text-lg font-semibold text-emerald-600">{formatBRL(receitas)}</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Despesas</span>
-                  <div className="flex items-center gap-2">
-                    <TrendingDown className="size-4 text-red-500" />
-                    <span className="text-lg font-semibold text-red-500">{formatBRL(totalDespesas)}</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Resultado previsto</span>
-                  <div className={`text-lg font-semibold ${resultadoPrevisto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {resultadoPrevisto >= 0 ? "+" : ""}{formatBRL(resultadoPrevisto)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="shrink-0">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => navigate({ to: "/relatorios" })}>
-                Ver detalhes completos <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
+      <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-background to-background">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+              <Coins className="size-4 text-emerald-600" />
+              Saldo em conta · <span className="capitalize text-foreground font-medium">{monthLabel}</span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Receitas do mês menos tudo que já foi efetivamente pago (gastos fixos liquidados, fatura paga, PIX/Débito).
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1 text-xs">
+            Fórmula: Receitas − Pagos
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className={`text-3xl font-bold tracking-tight ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+            {formatBRL(saldoConta)}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span>Receitas: <span className="font-medium text-success">{formatBRL(receitas)}</span></span>
+            <span>Pagos: <span className="font-medium text-emerald-700 dark:text-emerald-400">−{formatBRL(totalPago)}</span></span>
+            <span>Pendentes (não impactam saldo): <span className="font-medium text-amber-600">{formatBRL(totalPendente)}</span></span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Row 2: 5 KPI cards */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {/* Receitas */}
-        <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-emerald-500/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Receitas</CardTitle>
-            <TrendingUp className="size-4 text-emerald-500" />
+        <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-normal text-muted-foreground">Receitas</CardTitle>
+            <TrendingUp className="size-4 text-success" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold text-emerald-600">{formatBRL(receitas)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(receitaPct)}</div>
-            <div className="h-12 mt-2">
+          <CardContent>
+            <div className="text-2xl font-semibold text-success">{formatBRL(receitas)}</div>
+            <div className="h-16 mt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={receitaTrend}>
                   <defs>
                     <linearGradient id="gReceita" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0} />
+                      <stop offset="0%" stopColor="oklch(0.62 0.12 150)" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="oklch(0.62 0.12 150)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="valor" stroke="#16a34a" fill="url(#gReceita)" strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="valor" stroke="oklch(0.62 0.12 150)" fill="url(#gReceita)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Despesas Fixas */}
-        <Card onClick={() => setDetailKind("fixo")} className="cursor-pointer transition-all hover:border-orange-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas Fixas</CardTitle>
-            <Wallet className="size-4 text-orange-500" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold">{formatBRL(fixos)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(fixosPct)}</div>
-            <div className="h-12 mt-2">
-              {fixosBarData.length === 0 ? (
-                <div className="text-[10px] text-muted-foreground">Sem dados</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={fixosBarData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <Bar dataKey="value" fill="#f97316" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <Card onClick={() => setDetailKind("fixo")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
 
-        {/* Despesas Variáveis */}
-        <Card onClick={() => setDetailKind("variavel")} className="cursor-pointer transition-all hover:border-orange-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas Variáveis</CardTitle>
-            <ShoppingCart className="size-4 text-orange-500" />
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-normal text-muted-foreground">Gastos Fixos</CardTitle>
+            <Wallet className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold">{formatBRL(variaveis)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(variaveisPct)}</div>
-            <div className="h-12 mt-2 flex items-center justify-center">
-              {variaveisByCat.length === 0 ? (
-                <div className="text-[10px] text-muted-foreground">Sem dados</div>
+          <CardContent>
+            <div className="text-2xl font-semibold">{formatBRL(fixos)}</div>
+            <PaidPendingRow paid={sumPaid("fixo")} pending={sumPending("fixo")} />
+            <div className="h-12 mt-2">
+              {fixosByCat.length === 0 ? (
+                <div className="text-xs text-muted-foreground">Sem dados</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={variaveisByCat} dataKey="value" innerRadius={14} outerRadius={22}>
-                      {variaveisByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    <Pie data={fixosByCat} dataKey="value" innerRadius={18} outerRadius={32}>
+                      {fixosByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
@@ -489,292 +352,301 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Parcelamentos */}
-        <Card onClick={() => setDetailKind("parcelamento")} className="cursor-pointer transition-all hover:border-violet-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Parcelamentos</CardTitle>
-            <CreditCard className="size-4 text-violet-500" />
+        <Card onClick={() => setDetailKind("variavel")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-normal text-muted-foreground">Gastos Variáveis</CardTitle>
+            <TrendingDown className="size-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold">{formatBRL(parcelas)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(parcelasPct)}</div>
-            <div className="mt-2 space-y-0.5 text-[11px]">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Próximos 7 dias</span>
-                <span className="font-medium text-foreground">{formatBRL(proximos7Dias)}</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Próximos 30 dias</span>
-                <span className="font-medium text-foreground">{formatBRL(proximos30Dias)}</span>
-              </div>
+          <CardContent>
+            <div className="text-2xl font-semibold">{formatBRL(variaveis)}</div>
+            <PaidPendingRow paid={sumPaid("variavel")} pending={sumPending("variavel")} />
+            <div className="h-12 mt-2">
+              {variaveisByCat.length === 0 ? (
+                <div className="text-xs text-muted-foreground">Sem dados</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={variaveisByCat}>
+                    <Bar dataKey="value" fill="oklch(0.55 0.06 150)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* A pagar (total) */}
-        <Card className="cursor-pointer transition-all hover:border-amber-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">A pagar (total)</CardTitle>
+        <Card onClick={() => setDetailKind("parcelamento")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-normal text-muted-foreground">Parcelamentos</CardTitle>
+            <CreditCard className="size-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold">{formatBRL(parcelas)}</div>
+            <PaidPendingRow paid={sumPaid("parcelamento")} pending={sumPending("parcelamento")} />
+            <div className="mt-2 space-y-1 text-xs">
+              {parcList.length === 0 ? (
+                <div className="text-muted-foreground">Sem parcelamentos</div>
+              ) : parcList.map((p) => (
+                <div key={p.id} className="flex justify-between border-b border-border/40 pb-0.5">
+                  <span className="truncate text-muted-foreground">{p.category}</span>
+                  <span className="font-medium">{formatBRL(Number(p.amount))}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-normal text-muted-foreground">A pagar (total)</CardTitle>
             <CalendarClock className="size-4 text-amber-500" />
           </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold text-amber-600">{formatBRL(totalPendente)}</div>
-            <div className="mt-1 space-y-0.5 text-[11px]">
-              <div className="text-muted-foreground">{contasPendentes} {contasPendentes === 1 ? "conta" : "contas"}</div>
-              <div className="text-amber-600 font-medium">Vencem nos próximos 7 dias</div>
+          <CardContent>
+            <div className="text-2xl font-semibold text-amber-600">{formatBRL(totalPendente)}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length} lançamentos pendentes
             </div>
+            <div className="text-xs text-amber-600 mt-2">Vencem neste mês</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Row 3: Fluxo financeiro + Alertas */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Fluxo financeiro */}
-        <Card className="lg:col-span-2 border-border/40 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Fluxo financeiro do mês</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {/* Sankey-like flow diagram */}
-            <div className="flex flex-col gap-4">
-              {/* Top level: Receitas -> Despesas -> Resultado */}
-              <div className="flex items-center gap-2 sm:gap-4">
-                <div className="flex-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-center">
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Receitas</div>
-                  <div className="text-lg font-bold text-emerald-600">{formatBRL(receitas)}</div>
-                </div>
-                <ArrowRight className="size-5 text-muted-foreground shrink-0" />
-                <div className="flex-[2] rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-center">
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Total de Despesas</div>
-                  <div className="text-lg font-bold text-red-500">{formatBRL(totalDespesas)}</div>
-                </div>
-                <ArrowRight className="size-5 text-muted-foreground shrink-0" />
-                <div className={`flex-1 rounded-lg border p-3 text-center ${resultadoPrevisto >= 0 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Déficit do mês</div>
-                  <div className={`text-lg font-bold ${resultadoPrevisto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {resultadoPrevisto >= 0 ? "+" : ""}{formatBRL(resultadoPrevisto)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sankey branches: despesas sub-categories */}
-              <div className="relative">
-                <div className="grid grid-cols-4 gap-2">
-                  {fluxoPorCategoria.map((cat, i) => {
-                    const pct = totalDespesas > 0 ? Math.round((cat.value / totalDespesas) * 100) : 0;
-                    const colors = [
-                      "bg-orange-500/20 border-orange-400/40",
-                      "bg-amber-500/20 border-amber-400/40",
-                      "bg-violet-500/20 border-violet-400/40",
-                      "bg-blue-500/20 border-blue-400/40",
-                    ];
-                    return (
-                      <div key={cat.name} className={`rounded-lg border ${colors[i % colors.length]} p-2 text-center`}>
-                        <div className="text-[10px] text-muted-foreground truncate">{cat.name}</div>
-                        <div className="text-sm font-semibold">{formatBRL(cat.value)}</div>
-                        <div className="text-[10px] text-muted-foreground">{pct}%</div>
-                      </div>
-                    );
-                  })}
-                </div>
+      {/* Alertas e avisos */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarClock className="size-4 text-primary" /> Alertas e avisos
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          {cardTotals.filter((c) => !c.allPaid && c.total > 0).slice(0, 3).map((c) => (
+            <div key={c.card.id} className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <CreditCard className="size-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">Cartão {c.card.name}</div>
+                <div className="text-xs text-muted-foreground">Vence dia {c.card.due_day} · {formatBRL(c.total)}</div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          ))}
+          {tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <Wallet className="size-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">{tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length} parcelas pendentes</div>
+                <div className="text-xs text-muted-foreground">Acompanhe no Histórico</div>
+              </div>
+            </div>
+          )}
+          {totalPendente === 0 && cardTotals.every((c) => c.allPaid || c.total === 0) && (
+            <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+              <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+              <div>
+                <div className="text-sm font-medium">Tudo em dia</div>
+                <div className="text-xs text-muted-foreground">Nenhum pagamento pendente este mês.</div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Alertas e avisos */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="size-4 text-amber-500" /> Alertas e avisos
+
+      <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-background to-background">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
+              <CalendarClock className="size-4 text-primary" />
+              Previsão de Saída · <span className="capitalize text-foreground font-medium">{nextMonthLabel}</span>
             </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            {cardTotals.filter((c) => !c.allPaid && c.total > 0).slice(0, 3).map((c) => (
-              <div
-                key={c.card.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 cursor-pointer hover:bg-amber-500/10 transition-colors"
-                onClick={() => setDetailCardId(c.card.id)}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <CreditCard className="size-5 text-amber-600 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">Cartão {c.card.name}</div>
-                    <div className="text-xs text-muted-foreground">Vence dia {c.card.due_day} · {formatBRL(c.total)}</div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Soma de tudo que já está provisionado para o próximo mês (cartão, variáveis, fixos e parcelas).
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1">
+            {nextTx.length} {nextTx.length === 1 ? "lançamento" : "lançamentos"}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold tracking-tight">{formatBRL(nextOutflow)}</div>
+        </CardContent>
+      </Card>
+
+      {cardTotals.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground">Faturas por cartão · competência selecionada</h2>
+            <span className="text-xs text-muted-foreground">
+              Total: {formatBRL(cardTotals.reduce((s, c) => s + c.total, 0))}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {cardTotals.map(({ card, total, count, paidCount, allPaid }) => {
+              const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
+              return (
+                <div
+                  key={card.id}
+                  className="group relative overflow-hidden rounded-xl border text-left transition-all hover:shadow-lg"
+                  style={{ background: brand.gradient, borderColor: brand.border }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setDetailCardId(card.id)}
+                    className="w-full p-4 text-left"
+                  >
+                    <div className="flex items-start justify-between text-white/95">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="rounded-md bg-white/15 p-1.5 backdrop-blur-sm">
+                          <CreditCard className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold truncate">{card.name}</div>
+                          <div className="text-[11px] uppercase tracking-wider opacity-80">
+                            {card.bank} · fecha dia {card.closing_day}
+                          </div>
+                        </div>
+                      </div>
+                      {card.titular && (
+                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
+                          {card.titular}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-4 text-white">
+                      <div className={`text-2xl font-bold tracking-tight ${allPaid ? "line-through opacity-70" : ""}`}>
+                        {formatBRL(total)}
+                      </div>
+                      <div className="text-[11px] opacity-80">
+                        {count} {count === 1 ? "lançamento" : "lançamentos"} · venc. dia {card.due_day}
+                        {count > 0 && ` · ${paidCount}/${count} pagos`}
+                      </div>
+                    </div>
+                  </button>
+                  {count > 0 && (
+                    <div className="flex items-stretch border-t border-white/20 text-[11px] font-medium text-white">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleCardStatus(card.id, "pago"); }}
+                        disabled={allPaid}
+                        className="flex-1 py-2 inline-flex items-center justify-center gap-1 bg-emerald-600/30 hover:bg-emerald-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <CheckCircle2 className="size-3" /> Pago
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleCardStatus(card.id, "pendente"); }}
+                        disabled={paidCount === 0}
+                        className="flex-1 py-2 inline-flex items-center justify-center gap-1 bg-amber-500/30 hover:bg-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-l border-white/20"
+                      >
+                        <Circle className="size-3" /> Pendente
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle className="text-base">Análise Semanal de Saldos</CardTitle></CardHeader>
+          <CardContent className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={weekly}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={12} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} />
+                <Tooltip formatter={(v: number) => formatBRL(v)} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line type="monotone" dataKey="Saldo" stroke="oklch(0.55 0.06 150)" strokeWidth={2} />
+                <Line type="monotone" dataKey="Fixos" stroke="oklch(0.6 0.12 200)" strokeWidth={2} />
+                <Line type="monotone" dataKey="Variáveis" stroke="oklch(0.7 0.08 130)" strokeWidth={2} />
+                <Line type="monotone" dataKey="Parcelamentos" stroke="oklch(0.5 0.1 280)" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Evolução de Metas</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {goals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma meta cadastrada.</p>
+            ) : goals.slice(0, 4).map((g) => {
+              const pct = Math.min(100, Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100));
+              return (
+                <div key={g.id} className="flex items-center gap-3">
+                  <CircularProgress value={pct} size={48} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{g.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatBRL(Number(g.current_amount))} / {formatBRL(Number(g.target_amount))}
+                    </div>
                   </div>
                 </div>
-                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-              </div>
-            ))}
-            {tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length > 0 && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 cursor-pointer hover:bg-primary/10 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Wallet className="size-5 text-primary shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length} parcelas pendentes</div>
-                    <div className="text-xs text-muted-foreground">Acompanhe no Histórico</div>
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            {despesasPct > 5 && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 cursor-pointer hover:bg-red-500/10 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <TrendingUp className="size-5 text-red-500 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">Gastos aumentaram {despesasPct}%</div>
-                    <div className="text-xs text-muted-foreground">Em relação ao mês anterior</div>
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            {totalPendente === 0 && cardTotals.every((c) => c.allPaid || c.total === 0) && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">Tudo em dia</div>
-                    <div className="text-xs text-muted-foreground">Nenhum pagamento pendente</div>
-                  </div>
-                </div>
-              </div>
-            )}
+              );
+            })}
           </CardContent>
         </Card>
       </div>
 
-      {/* Row 4: 3-col grid */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Lançamentos recentes */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Lançamentos recentes</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate({ to: "/lancamentos" })}>
-              Ver todos <ChevronRight className="size-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle className="text-base">Lançamentos Recentes</CardTitle></CardHeader>
+          <CardContent>
             {recent.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem lançamentos neste mês.</p>
+              <p className="text-sm text-muted-foreground">Sem lançamentos neste mês.</p>
             ) : (
-              <div className="space-y-2">
-                {recent.map((t) => {
-                  const Icon = getCategoryIcon(t.category);
-                  const isEntrada = t.kind === "receita";
-                  return (
-                    <div key={t.id} className="flex items-center gap-3 py-1.5 border-b border-border/30 last:border-0">
-                      <div className={`rounded-lg p-1.5 ${isEntrada ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"}`}>
-                        <Icon className="size-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{t.description || t.category}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {formatDateBR(t.occurred_on)} · {t.category}
-                        </div>
-                      </div>
-                      <div className={`text-sm font-semibold whitespace-nowrap ${isEntrada ? "text-emerald-600" : "text-red-500"}`}>
-                        {isEntrada ? "+" : "-"}{formatBRL(Number(t.amount))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recent.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{formatDateBR(t.occurred_on)}</TableCell>
+                      <TableCell>{t.category}</TableCell>
+                      <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""}`}>
+                        {formatBRL(Number(t.amount))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
 
-        {/* Gastos por categoria */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Gastos por categoria</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate({ to: "/relatorios" })}>
-              Ver relatório <ChevronRight className="size-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {categoriaTotal.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem dados.</p>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Maiores Gastos por Categoria</CardTitle></CardHeader>
+          <CardContent className="h-[320px]">
+            {topCategories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem dados.</p>
+            ) : useBarsForCategories ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topCategories} layout="vertical" margin={{ left: 10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickFormatter={(v) => formatBRL(v)} />
+                  <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={11} width={90} />
+                  <Tooltip formatter={(v: number) => formatBRL(v)} />
+                  <Bar dataKey="value" fill="oklch(0.55 0.06 150)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="space-y-3">
-                {categoriaTotal.map((cat) => {
-                  const pct = Math.round((cat.value / categoriaMax) * 100);
-                  return (
-                    <div key={cat.name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium truncate">{cat.name}</span>
-                        <span className="text-muted-foreground">{formatBRL(cat.value)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                          style={{ width: `${Math.max(pct, 3)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="pt-2 border-t border-border/30 flex justify-between text-sm font-medium">
-                  <span>Total</span>
-                  <span>{formatBRL(totalDespesas)}</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Resumo dos cartões */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Resumo dos cartões</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setDetailCardId(cardTotals[0]?.card.id ?? null)}>
-              Ver todos <ChevronRight className="size-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {cardTotals.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem cartões.</p>
-            ) : (
-              <div className="space-y-4">
-                {cardTotals.slice(0, 3).map(({ card, total, count }) => {
-                  const pct = maxCardTotal > 0 ? Math.round((total / maxCardTotal) * 100) : 0;
-                  const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
-                  return (
-                    <div key={card.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="rounded-md p-1"
-                            style={{ background: brand.gradient }}
-                          >
-                            <CreditCard className="size-3.5 text-white" />
-                          </div>
-                          <span className="text-sm font-medium truncate">{card.name}</span>
-                        </div>
-                        <span className="text-sm font-semibold">{formatBRL(total)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.max(pct, 3)}%`,
-                            background: brand.gradient,
-                          }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[11px] text-muted-foreground">
-                        <span>{card.bank} · {card.titular || "—"}</span>
-                        <span>{pct}% utilizado</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="pt-2 border-t border-border/30 flex justify-between text-sm font-medium">
-                  <span>Total utilizado</span>
-                  <span>{formatBRL(cardTotalGeral)}</span>
-                </div>
-              </div>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={topCategories} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90}>
+                    {topCategories.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => formatBRL(v)} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
@@ -796,6 +668,22 @@ function Dashboard() {
         monthLabel={monthLabel}
         isFatturaPaga={currentClosed}
       />
+    </div>
+  );
+}
+
+function PaidPendingRow({ paid, pending }: { paid: number; pending: number }) {
+  if (paid === 0 && pending === 0) {
+    return <div className="mt-1 text-[11px] text-muted-foreground">Sem lançamentos</div>;
+  }
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+      <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+        <CheckCircle2 className="size-2.5" /> Pago {formatBRL(paid)}
+      </span>
+      <span className="inline-flex items-center gap-1 text-amber-600">
+        <Circle className="size-2.5" /> Pendente {formatBRL(pending)}
+      </span>
     </div>
   );
 }
@@ -1045,5 +933,29 @@ function DetailDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+
+function CircularProgress({ value, size = 56 }: { value: number; size?: number }) {
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (value / 100) * c;
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--muted)" strokeWidth={stroke} fill="none" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        stroke="oklch(0.55 0.06 150)" strokeWidth={stroke} fill="none"
+        strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 600ms ease" }}
+      />
+      <text
+        x="50%" y="50%" dy="0.35em" textAnchor="middle"
+        className="rotate-90 origin-center fill-foreground"
+        fontSize={size * 0.28} fontWeight={600} transform={`rotate(90 ${size / 2} ${size / 2})`}
+      >{value}%</text>
+    </svg>
   );
 }
