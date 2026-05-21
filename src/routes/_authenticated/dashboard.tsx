@@ -1,32 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip,
-  CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
-} from "recharts";
-import { formatBRL, formatDateBR, parseLocalDate } from "@/lib/finance-constants";
-import {
-  TrendingUp, TrendingDown, Wallet, CreditCard, CalendarClock, Coins,
-  Eye, ChevronRight, ShoppingCart, DollarSign, AlertTriangle, ArrowRight,
-  CheckCircle2, Circle, Landmark, UtensilsCrossed, Car, Home, Zap,
-  ShoppingBag, BookOpen, Music, Smartphone, Heart, Stethoscope, Shirt,
-  Lock, ChevronDown, Calendar, PiggyBank, Target, Plus,
-} from "lucide-react";
-import { MonthSelector } from "./relatorios";
+  formatBRL, formatDateBR, KINDS,
+} from "@/lib/finance-constants";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
-import { useClosedMonths } from "@/hooks/use-closed-months";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -38,124 +16,63 @@ interface Tx {
   description: string | null; bank: string | null;
   payment_method: string | null; titular: string | null;
   installment_no: number | null; installments_total: number | null;
-  card_id: string | null;
-  status: string;
+  card_id: string | null; status: string;
 }
-interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
 
-const PIE_COLORS = [
-  "oklch(0.55 0.06 150)", "oklch(0.65 0.1 130)", "oklch(0.5 0.1 280)",
-  "oklch(0.72 0.1 90)", "oklch(0.6 0.12 200)", "oklch(0.68 0.13 30)",
-  "oklch(0.45 0.08 160)", "oklch(0.58 0.11 320)", "oklch(0.7 0.08 60)",
-  "oklch(0.5 0.05 250)",
+interface CardRow {
+  id: string; name: string; bank: string; titular: string | null;
+  closing_day: number; due_day: number; credit_limit?: number;
+}
+
+const MESES_PT = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
 ];
 
-const CATEGORY_ICONS: Record<string, typeof Wallet> = {
-  Supermercado: ShoppingCart,
-  Mercado: ShoppingCart,
-  Aluguel: Home,
-  Água: Zap,
-  Luz: Zap,
-  Energia: Zap,
-  Internet: Smartphone,
-  Telefone: Smartphone,
-  Transporte: Car,
-  Uber: Car,
-  Combustível: Car,
-  Gasolina: Car,
-  Educação: BookOpen,
-  Escola: BookOpen,
-  Saúde: Heart,
-  Médico: Stethoscope,
-  Farmácia: Heart,
-  Vestuário: Shirt,
-  Roupa: Shirt,
-  Lazer: Music,
-  Restaurante: UtensilsCrossed,
-  Ifood: UtensilsCrossed,
-  Delivery: UtensilsCrossed,
-  Assinatura: BookOpen,
-  Streaming: Music,
-  Freelancer: DollarSign,
-  Salário: DollarSign,
-  Banco: Landmark,
+const BANK_COLORS: Record<string, string> = {
+  NUBANK: "#820AD1", INTER: "#FF7A00", XP: "#000000",
+  NEON: "#00C857", BRADESCO: "#CC0000", CAIXA: "#005CA9",
+  "MERCADO PAGO": "#00B5E2", SANTANDER: "#FF0000",
+  "BANCO DO BRASIL": "#FABE00",
 };
-
-function getCategoryIcon(category: string) {
-  const found = Object.entries(CATEGORY_ICONS).find(([key]) =>
-    category.toLowerCase().includes(key.toLowerCase())
-  );
-  return found ? found[1] : Wallet;
-}
 
 function Dashboard() {
   const now = new Date();
-  const navigate = useNavigate();
+  const { titular } = useTitular();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [tx, setTx] = useState<Tx[]>([]);
   const [prevTx, setPrevTx] = useState<Tx[]>([]);
-  const [goals, setGoals] = useState<{ id: string; name: string; target_amount: number; current_amount: number }[]>([]);
+  const [nextTx, setNextTx] = useState<Tx[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
-  const [detailKind, setDetailKind] = useState<string | null>(null);
-  const [detailCardId, setDetailCardId] = useState<string | null>(null);
-  const [hideSaldo, setHideSaldo] = useState(false);
-  const [defaultApplied, setDefaultApplied] = useState(false);
-  const { titular } = useTitular();
-  const { closedMonths, isClosed, close, reopen, loading: closedLoading } = useClosedMonths();
+  const [loading, setLoading] = useState(true);
+
+  const start = new Date(year, month, 1).toISOString().slice(0, 10);
+  const end = new Date(year, month + 1, 1).toISOString().slice(0, 10);
+  const prevStart = new Date(year, month - 1, 1).toISOString().slice(0, 10);
+  const endNext = new Date(year, month + 2, 1).toISOString().slice(0, 10);
+  const monthLabel = MESES_PT[month];
 
   useEffect(() => {
-    if (closedLoading || defaultApplied) return;
-    const currIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    let probe = currIso;
-    for (let i = 0; i < 12 && closedMonths.includes(probe); i++) {
-      const [y, m] = probe.split("-").map(Number);
-      const nm = m === 12 ? 1 : m + 1;
-      const ny = m === 12 ? y + 1 : y;
-      probe = `${ny}-${String(nm).padStart(2, "0")}-01`;
-    }
-    if (probe !== currIso) {
-      const [py, pm] = probe.split("-").map(Number);
-      setYear(py); setMonth(pm - 1);
-    }
-    setDefaultApplied(true);
-  }, [closedLoading, closedMonths, defaultApplied]);
-
-  const currentMonthIso = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const prevMonthDate = new Date(year, month - 1, 1);
-  const prevMonthIso = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
-  const nextMonthDate = new Date(year, month + 1, 1);
-  const nextMonthIso = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
-  const currentClosed = isClosed(currentMonthIso);
-  const monthLabelShort = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long" });
-  const prevMonthLabel = prevMonthDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-
-  const fetchMonth = async (iso: string, signal?: AbortSignal) => {
-    const [y, m] = iso.split("-").map(Number);
-    const start = new Date(y, m - 1, 1).toISOString().slice(0, 10);
-    const end = new Date(y, m, 1).toISOString().slice(0, 10);
-    let q = supabase.from("transactions")
+    setLoading(true);
+    const loadTx = supabase.from("transactions")
       .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
       .gte("competence_month", start).lt("competence_month", end)
       .order("occurred_on", { ascending: false });
-    if (signal) q = q.abortSignal(signal);
-    q = applyTitular(q, titular);
-    const { data } = await q;
-    return (data ?? []) as Tx[];
-  };
+    applyTitular(loadTx, titular).then(({ data }) => setTx((data ?? []) as Tx[]));
 
-  useEffect(() => {
-    const ac = new AbortController();
-    const currentIso = currentMonthIso;
-    const prevIso = prevMonthIso;
+    const loadPrev = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
+      .gte("competence_month", prevStart).lt("competence_month", start);
+    applyTitular(loadPrev, titular).then(({ data }) => setPrevTx((data ?? []) as Tx[]));
 
-    fetchMonth(currentIso, ac.signal).then(setTx);
-    fetchMonth(prevIso, ac.signal).then(setPrevTx);
+    const loadNext = supabase.from("transactions")
+      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
+      .gte("competence_month", end).lt("competence_month", endNext);
+    applyTitular(loadNext, titular).then(({ data }) => setNextTx((data ?? []) as Tx[]));
 
-    supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as { id: string; name: string; target_amount: number; current_amount: number }[]));
-    supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
-
-    return () => ac.abort();
+    supabase.from("cards").select("*").order("name")
+      .then(({ data, error }) => { if (!error) setCards((data ?? []) as CardRow[]); setLoading(false); });
   }, [year, month, titular]);
 
   const visibleCards = useMemo(
@@ -163,887 +80,503 @@ function Dashboard() {
     [cards, titular],
   );
 
+  const sum = (list: Tx[], kind: string) =>
+    list.filter((t) => t.kind === kind).reduce((s, t) => s + Number(t.amount), 0);
+
+  const receitas = sum(tx, "receita");
+  const fixos = sum(tx, "fixo");
+  const variaveis = sum(tx, "variavel");
+  const parcelas = sum(tx, "parcelamento");
+  const totalDespesas = fixos + variaveis + parcelas;
+  const totalPago = tx.filter((t) => t.kind !== "receita" && t.status === "pago")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const totalPendente = tx.filter((t) => t.kind !== "receita" && t.status !== "pago")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const saldoConta = receitas - totalPago;
+  const resultadoPrevisto = receitas - totalDespesas;
+  const qtdPendentes = tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length;
+
+  const prevReceitas = sum(prevTx, "receita");
+  const prevDespesas = prevTx.filter((t) => t.kind !== "receita")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const diffSaldoPct = (prevReceitas - prevDespesas) !== 0
+    ? ((saldoConta - (prevReceitas - prevDespesas)) / Math.abs(prevReceitas - prevDespesas) * 100).toFixed(0)
+    : "0";
+  const diffReceitasPct = prevReceitas > 0 ? ((receitas - prevReceitas) / prevReceitas * 100).toFixed(0) : "0";
+  const diffDespesasPct = prevDespesas > 0 ? ((totalDespesas - prevDespesas) / prevDespesas * 100).toFixed(0) : "0";
+
   const cardTotals = useMemo(() => {
     return visibleCards.map((c) => {
       const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
       const total = items.reduce((s, t) => s + Number(t.amount), 0);
-      const paidCount = items.filter((t) => t.status === "pago").length;
-      const allPaid = items.length > 0 && paidCount === items.length;
-      return { card: c, total, count: items.length, paidCount, allPaid, items };
+      return { card: c, total, items };
     });
   }, [visibleCards, tx]);
 
-  async function toggleCardStatus(cardId: string, markAs: "pago" | "pendente") {
-    const target = cardTotals.find((c) => c.card.id === cardId);
-    if (!target || target.items.length === 0) return;
-    const ids = target.items.map((t) => t.id);
-    setTx((prev) => prev.map((x) => ids.includes(x.id) ? { ...x, status: markAs } : x));
-    const { error } = await supabase
-      .from("transactions")
-      .update({ status: markAs })
-      .in("id", ids);
-    if (error) { toast.error(error.message); refresh(); return; }
-    toast.success(markAs === "pago" ? "Fatura marcada como paga" : "Fatura marcada como pendente");
-  }
-
-  const sumKind = (data: Tx[], k: string) => data.filter((t) => t.kind === k).reduce((s, t) => s + Number(t.amount), 0);
-  const sumPaidKind = (data: Tx[], k: string) => data.filter((t) => t.kind === k && t.status === "pago").reduce((s, t) => s + Number(t.amount), 0);
-  const sumPendingKind = (data: Tx[], k: string) => data.filter((t) => t.kind === k && t.status !== "pago").reduce((s, t) => s + Number(t.amount), 0);
-
-  const receitas = sumKind(tx, "receita");
-  const fixos = sumKind(tx, "fixo");
-  const variaveis = sumKind(tx, "variavel");
-  const parcelas = sumKind(tx, "parcelamento");
-
-  const totalPago = tx
-    .filter((t) => t.kind !== "receita" && t.status === "pago")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const totalPendente = tx
-    .filter((t) => t.kind !== "receita" && t.status !== "pago")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const saldoConta = receitas - totalPago;
-  const totalDespesas = fixos + variaveis + parcelas;
-  const resultadoPrevisto = receitas - totalDespesas;
-
-  const prevReceitas = sumKind(prevTx, "receita");
-  const prevFixos = sumKind(prevTx, "fixo");
-  const prevVariaveis = sumKind(prevTx, "variavel");
-  const prevParcelas = sumKind(prevTx, "parcelamento");
-  const prevTotalDespesas = prevFixos + prevVariaveis + prevParcelas;
-
-  const pctChange = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return Math.round(((current - previous) / previous) * 100);
-  };
-
-  const receitaPct = pctChange(receitas, prevReceitas);
-  const fixosPct = pctChange(fixos, prevFixos);
-  const variaveisPct = pctChange(variaveis, prevVariaveis);
-  const parcelasPct = pctChange(parcelas, prevParcelas);
-  const despesasPct = pctChange(totalDespesas, prevTotalDespesas);
-
-  async function refresh() {
-    const d = await fetchMonth(currentMonthIso);
-    setTx(d);
-  }
-
-  async function toggleStatus(t: Tx) {
-    const next = t.status === "pago" ? "pendente" : "pago";
-    setTx((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x));
-    const { error } = await supabase.from("transactions").update({ status: next }).eq("id", t.id);
-    if (error) { toast.error(error.message); refresh(); return; }
-    toast.success(next === "pago" ? "Marcado como pago" : "Marcado como pendente");
-  }
-
-  const receitaTrend = useMemo(() => {
-    const days = new Date(year, month + 1, 0).getDate();
-    const buckets = Array.from({ length: Math.ceil(days / 5) }, (_, i) => ({
-      label: `S${i + 1}`, valor: 0,
-    }));
-    tx.filter((t) => t.kind === "receita").forEach((t) => {
-      const d = parseLocalDate(t.occurred_on).getDate();
-      const idx = Math.floor((d - 1) / 5);
-      if (buckets[idx]) buckets[idx].valor += Number(t.amount);
-    });
-    return buckets;
-  }, [tx, year, month]);
-
-  const fixosByCat = useMemo(() => {
-    const map: Record<string, number> = {};
-    tx.filter((t) => t.kind === "fixo").forEach((t) => {
-      map[t.category] = (map[t.category] ?? 0) + Number(t.amount);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [tx]);
-
-  const variaveisByCat = useMemo(() => {
-    const map: Record<string, number> = {};
-    tx.filter((t) => t.kind === "variavel").forEach((t) => {
-      map[t.category] = (map[t.category] ?? 0) + Number(t.amount);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value })).slice(0, 5);
-  }, [tx]);
-
-  const fixosBarData = useMemo(() => {
-    return fixosByCat.slice(0, 11);
-  }, [fixosByCat]);
-
   const recent = tx.slice(0, 5);
 
-  const categoriaTotal = useMemo(() => {
-    const map: Record<string, number> = {};
+  const catExpenses = useMemo(() => {
+    const map = new Map<string, number>();
     tx.filter((t) => t.kind !== "receita").forEach((t) => {
-      map[t.category] = (map[t.category] ?? 0) + Number(t.amount);
+      map.set(t.category, (map.get(t.category) ?? 0) + Number(t.amount));
     });
-    return Object.entries(map)
+    return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
+      .slice(0, 12)
       .map(([name, value]) => ({ name, value }));
   }, [tx]);
 
-  const categoriaMax = Math.max(...categoriaTotal.map((c) => c.value), 1);
-
-  const parcelasPendentes = useMemo(() => {
-    return tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago");
-  }, [tx]);
-
-  const proximos7Dias = useMemo(() => {
-    const hoje = new Date();
-    const seteDias = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return parcelasPendentes
-      .filter((t) => {
-        const d = parseLocalDate(t.occurred_on);
-        return d >= hoje && d <= seteDias;
-      })
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [parcelasPendentes]);
-
-  const proximos30Dias = useMemo(() => {
-    const hoje = new Date();
-    const trintaDias = new Date(hoje.getTime() + 30 * 24 * 60 * 60 * 1000);
-    return parcelasPendentes
-      .filter((t) => {
-        const d = parseLocalDate(t.occurred_on);
-        return d > new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000) && d <= trintaDias;
-      })
-      .reduce((s, t) => s + Number(t.amount), 0);
-  }, [parcelasPendentes]);
-
-  const contasPendentes = tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length;
-
-  const fluxoPorCategoria = useMemo(() => {
-    const map: Record<string, number> = {};
-    tx.filter((t) => t.kind !== "receita").forEach((t) => {
-      const cat = t.kind === "fixo" ? "Gastos Fixos" : t.kind === "variavel" ? "Gastos Variáveis" : "Parcelamentos";
-      map[cat] = (map[cat] ?? 0) + Number(t.amount);
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [tx]);
-
-  const cardTotalGeral = cardTotals.reduce((s, c) => s + c.total, 0);
-  const maxCardTotal = Math.max(...cardTotals.map((c) => c.total), 1);
-
-  const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-
-  const pctBadge = (pct: number, positiveIsGood = false) => {
-    const isPositive = pct > 0;
-    const isNeutral = pct === 0;
-    const color = isNeutral ? "text-muted-foreground" :
-      positiveIsGood ? (isPositive ? "text-emerald-600" : "text-red-500") :
-      (isPositive ? "text-red-500" : "text-emerald-600");
-    return (
-      <span className={`text-xs font-medium ${color}`}>
-        {isNeutral ? "0%" : isPositive ? `+${pct}%` : `${pct}%`}
-        <span className="text-muted-foreground font-normal"> vs {prevMonthLabel}</span>
-      </span>
-    );
-  };
+  const catTotal = catExpenses.reduce((s, c) => s + c.value, 0);
+  const nextOutflow = nextTx.filter((t) => t.kind !== "receita")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const cardTotalSum = cardTotals.reduce((s, ct) => s + ct.total, 0);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground capitalize">Visão geral do mês de {monthLabel}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-        </div>
-      </div>
+    <>
+      <style id="db-style">{`
+        .db {
+          --bg-body: #F4F6F4;
+          --white: #FFFFFF;
+          --primary: #2D6A4F;
+          --primary-light: #D8E2DC;
+          --success: #1B4332;
+          --success-bg: #E8F5EE;
+          --danger: #D62828;
+          --danger-bg: #FDF0ED;
+          --warning: #F77F00;
+          --text-main: #1F2937;
+          --text-muted: #6B7280;
+          --border: #E5E7EB;
+          --radius-md: 12px;
+          --radius-sm: 8px;
+          font-family: 'Inter', sans-serif;
+          color: var(--text-main);
+        }
 
-      {/* Row 1: Saldo atual - full width */}
-      <Card className="border-border/40 shadow-sm">
-        <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-            <div className="flex-1 space-y-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setHideSaldo(!hideSaldo)}
-                  className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
-                >
-                  <Eye className="size-5" />
-                </button>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Saldo atual</span>
-                    {receitaPct !== 0 && (
-                      <Badge variant="secondary" className="text-[11px] font-normal gap-1 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15">
-                        <TrendingUp className="size-3" />
-                        {receitaPct > 0 ? "+" : ""}{receitaPct}% em relação a {prevMonthLabel}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className={`text-4xl font-bold tracking-tight ${hideSaldo ? "blur-lg select-none" : ""} ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
-                    {formatBRL(saldoConta)}
-                  </div>
-                </div>
-              </div>
+        .db h2 { font-size: 28px; font-weight: 700; }
+        .db .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+        .db .page-title p { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+        .db .header-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .db .btn-success {
+          background-color: var(--primary); color: white; border: none;
+          padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px;
+          font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;
+        }
+        .db .select-filter {
+          padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+          background: var(--white); font-size: 13px; outline: none; font-family: inherit;
+        }
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Receitas</span>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="size-4 text-emerald-500" />
-                    <span className="text-lg font-semibold text-emerald-600">{formatBRL(receitas)}</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Despesas</span>
-                  <div className="flex items-center gap-2">
-                    <TrendingDown className="size-4 text-red-500" />
-                    <span className="text-lg font-semibold text-red-500">{formatBRL(totalDespesas)}</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-muted-foreground">Resultado previsto</span>
-                  <div className={`text-lg font-semibold ${resultadoPrevisto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {resultadoPrevisto >= 0 ? "+" : ""}{formatBRL(resultadoPrevisto)}
-                  </div>
-                </div>
-              </div>
-            </div>
+        .db .card-highlight {
+          background: var(--white); border: 1px solid var(--primary-light);
+          border-radius: var(--radius-md); padding: 24px;
+          display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 24px; gap: 24px; flex-wrap: wrap;
+        }
+        .db .highlight-col { display: flex; flex-direction: column; gap: 8px; }
+        .db .highlight-col span { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .db .saldo-value { font-size: 32px; font-weight: 700; color: var(--primary); }
+        .db .badge-green { background: var(--success-bg); color: var(--primary); padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .db .text-danger { color: var(--danger); }
+        .db .text-success { color: var(--primary); }
+        .db .btn-outline {
+          background: transparent; border: 1px solid var(--border);
+          padding: 8px 16px; border-radius: var(--radius-sm);
+          font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap;
+        }
 
-            <div className="shrink-0">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => navigate({ to: "/relatorios" })}>
-                Ver detalhes completos <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
+        .db .metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+        .db .metric-card {
+          background: var(--white); border: 1px solid var(--border);
+          border-radius: var(--radius-md); padding: 20px;
+          display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .db .metric-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+        .db .icon-box {
+          width: 36px; height: 36px; background: var(--primary); color: white;
+          border-radius: 50%; display: flex; align-items: center;
+          justify-content: center; font-size: 14px; flex-shrink: 0;
+        }
+        .db .metric-info h4 { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
+        .db .metric-info h3 { font-size: 20px; font-weight: 700; }
+        .db .metric-info .trend { font-size: 11px; margin-top: 4px; font-weight: 600; }
+        .db .card-footer-list { list-style: none; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+        .db .card-footer-list li { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .db .fake-chart-line { height: 30px; background: linear-gradient(to top, var(--success-bg), transparent); border-bottom: 2px solid var(--primary); border-radius: 0 0 8px 8px; margin: -20px; margin-top: 10px; }
+        .db .fake-chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 30px; margin-top: 10px; }
+        .db .bar { background: var(--warning); width: 8px; border-radius: 2px; }
+        .db .fake-chart-donut { width: 40px; height: 40px; border: 6px solid var(--warning); border-radius: 50%; border-top-color: var(--primary-light); margin: 0 auto; margin-top: 10px; }
+
+        .db .middle-grid { display: grid; grid-template-columns: 2fr 1.2fr; gap: 24px; margin-bottom: 24px; }
+        .db .panel { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; }
+        .db .panel-title { font-size: 15px; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+        .db .fluxo-container { display: flex; align-items: stretch; justify-content: space-between; padding: 20px 0; gap: 16px; flex-wrap: wrap; }
+        .db .fluxo-box { border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; background: white; width: 130px; }
+        .db .fluxo-box h5 { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
+        .db .fluxo-box p { font-size: 14px; font-weight: 700; }
+        .db .fluxo-col-right { display: flex; flex-direction: column; gap: 12px; min-width: 180px; }
+        .db .fluxo-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 8px; background: #F9FAFB; border-radius: 6px; }
+        .db .fluxo-item strong { color: var(--text-main); font-weight: 600; }
+        .db .fluxo-item .perc { color: var(--danger); font-weight: 700; }
+
+        .db .alerts-list { display: flex; flex-direction: column; gap: 16px; }
+        .db .alert-item { display: flex; gap: 12px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+        .db .alert-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .db .alert-info h4 { font-size: 13px; font-weight: 600; }
+        .db .alert-info p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .db .alert-chevron { margin-left: auto; color: var(--border); font-size: 12px; }
+        .db .link-all { text-align: center; margin-top: 16px; }
+        .db .link-all a { font-size: 12px; color: var(--primary); font-weight: 600; text-decoration: none; }
+
+        .db .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+        .db .list-table { width: 100%; border-collapse: collapse; }
+        .db .list-table tr { border-bottom: 1px solid var(--border); }
+        .db .list-table td { padding: 12px 0; font-size: 12px; vertical-align: middle; }
+        .db .list-table td:last-child { text-align: right; font-weight: 600; white-space: nowrap; }
+
+        .db .progress-item { margin-bottom: 16px; }
+        .db .progress-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+        .db .progress-bar-bg { height: 6px; background: var(--border); border-radius: 4px; width: 100%; overflow: hidden; }
+        .db .progress-fill { height: 100%; background: var(--primary); border-radius: 4px; }
+        .db .total-row { display: flex; justify-content: space-between; margin-top: 24px; font-weight: 700; font-size: 14px; }
+
+        .db .card-summary-item { margin-bottom: 20px; }
+        .db .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+        .db .card-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+        .db .card-logo { width: 28px; height: 28px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0; }
+        .db .card-logo.nu { background: #820AD1; }
+        .db .card-logo.inter { background: #FF7A00; }
+        .db .card-value { text-align: right; font-size: 13px; font-weight: 600; white-space: nowrap; }
+        .db .card-limit { font-size: 11px; color: var(--text-muted); font-weight: 400; display: block; }
+        .db .card-progress { display: flex; align-items: center; gap: 8px; }
+        .db .card-progress .progress-bar-bg { flex: 1; }
+
+        .db .loading-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+        .db .empty-text { font-size: 12px; color: var(--text-muted); padding: 12px 0; }
+
+        @media (max-width: 1100px) {
+          .db .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+          .db .middle-grid { grid-template-columns: 1fr; }
+          .db .bottom-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+          .db .metrics-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      <div className="db">
+        <header className="header">
+          <div className="page-title">
+            <h2>Dashboard</h2>
+            <p>{monthLabel} de {year}</p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="header-actions">
+            <select className="select-filter" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+              {MESES_PT.map((m, i) => <option key={m} value={i}>{m}</option>)}
+            </select>
+            <select className="select-filter" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+              {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+        </header>
 
-      {/* Row 2: 5 KPI cards */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        {/* Receitas */}
-        <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-emerald-500/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Receitas</CardTitle>
-            <TrendingUp className="size-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold text-emerald-600">{formatBRL(receitas)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(receitaPct)}</div>
-            <div className="h-12 mt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={receitaTrend}>
-                  <defs>
-                    <linearGradient id="gReceita" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="valor" stroke="#16a34a" fill="url(#gReceita)" strokeWidth={1.5} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Despesas Fixas */}
-        <Card onClick={() => setDetailKind("fixo")} className="cursor-pointer transition-all hover:border-orange-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas Fixas</CardTitle>
-            <Wallet className="size-4 text-orange-500" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold">{formatBRL(fixos)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(fixosPct)}</div>
-            <div className="h-12 mt-2">
-              {fixosBarData.length === 0 ? (
-                <div className="text-[10px] text-muted-foreground">Sem dados</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={fixosBarData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <Bar dataKey="value" fill="#f97316" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Despesas Variáveis */}
-        <Card onClick={() => setDetailKind("variavel")} className="cursor-pointer transition-all hover:border-orange-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Despesas Variáveis</CardTitle>
-            <ShoppingCart className="size-4 text-orange-500" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold">{formatBRL(variaveis)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(variaveisPct)}</div>
-            <div className="h-12 mt-2 flex items-center justify-center">
-              {variaveisByCat.length === 0 ? (
-                <div className="text-[10px] text-muted-foreground">Sem dados</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={variaveisByCat} dataKey="value" innerRadius={14} outerRadius={22}>
-                      {variaveisByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Parcelamentos */}
-        <Card onClick={() => setDetailKind("parcelamento")} className="cursor-pointer transition-all hover:border-violet-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Parcelamentos</CardTitle>
-            <CreditCard className="size-4 text-violet-500" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold">{formatBRL(parcelas)}</div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">{pctBadge(parcelasPct)}</div>
-            <div className="mt-2 space-y-0.5 text-[11px]">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Próximos 7 dias</span>
-                <span className="font-medium text-foreground">{formatBRL(proximos7Dias)}</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Próximos 30 dias</span>
-                <span className="font-medium text-foreground">{formatBRL(proximos30Dias)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* A pagar (total) */}
-        <Card className="cursor-pointer transition-all hover:border-amber-400/60 hover:shadow-sm border-border/40 shadow-sm">
-          <CardHeader className="pb-1 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">A pagar (total)</CardTitle>
-            <CalendarClock className="size-4 text-amber-500" />
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="text-xl font-bold text-amber-600">{formatBRL(totalPendente)}</div>
-            <div className="mt-1 space-y-0.5 text-[11px]">
-              <div className="text-muted-foreground">{contasPendentes} {contasPendentes === 1 ? "conta" : "contas"}</div>
-              <div className="text-amber-600 font-medium">Vencem nos próximos 7 dias</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 3: Fluxo financeiro + Alertas */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Fluxo financeiro */}
-        <Card className="lg:col-span-2 border-border/40 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Fluxo financeiro do mês</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {/* Sankey-like flow diagram */}
-            <div className="flex flex-col gap-4">
-              {/* Top level: Receitas -> Despesas -> Resultado */}
-              <div className="flex items-center gap-2 sm:gap-4">
-                <div className="flex-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-center">
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Receitas</div>
-                  <div className="text-lg font-bold text-emerald-600">{formatBRL(receitas)}</div>
-                </div>
-                <ArrowRight className="size-5 text-muted-foreground shrink-0" />
-                <div className="flex-[2] rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-center">
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Total de Despesas</div>
-                  <div className="text-lg font-bold text-red-500">{formatBRL(totalDespesas)}</div>
-                </div>
-                <ArrowRight className="size-5 text-muted-foreground shrink-0" />
-                <div className={`flex-1 rounded-lg border p-3 text-center ${resultadoPrevisto >= 0 ? "bg-emerald-500/10 border-emerald-500/30" : "bg-red-500/10 border-red-500/30"}`}>
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Déficit do mês</div>
-                  <div className={`text-lg font-bold ${resultadoPrevisto >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {resultadoPrevisto >= 0 ? "+" : ""}{formatBRL(resultadoPrevisto)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sankey branches: despesas sub-categories */}
-              <div className="relative">
-                <div className="grid grid-cols-4 gap-2">
-                  {fluxoPorCategoria.map((cat, i) => {
-                    const pct = totalDespesas > 0 ? Math.round((cat.value / totalDespesas) * 100) : 0;
-                    const colors = [
-                      "bg-orange-500/20 border-orange-400/40",
-                      "bg-amber-500/20 border-amber-400/40",
-                      "bg-violet-500/20 border-violet-400/40",
-                      "bg-blue-500/20 border-blue-400/40",
-                    ];
-                    return (
-                      <div key={cat.name} className={`rounded-lg border ${colors[i % colors.length]} p-2 text-center`}>
-                        <div className="text-[10px] text-muted-foreground truncate">{cat.name}</div>
-                        <div className="text-sm font-semibold">{formatBRL(cat.value)}</div>
-                        <div className="text-[10px] text-muted-foreground">{pct}%</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Alertas e avisos */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="size-4 text-amber-500" /> Alertas e avisos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            {cardTotals.filter((c) => !c.allPaid && c.total > 0).slice(0, 3).map((c) => (
-              <div
-                key={c.card.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 cursor-pointer hover:bg-amber-500/10 transition-colors"
-                onClick={() => setDetailCardId(c.card.id)}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <CreditCard className="size-5 text-amber-600 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">Cartão {c.card.name}</div>
-                    <div className="text-xs text-muted-foreground">Vence dia {c.card.due_day} · {formatBRL(c.total)}</div>
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-              </div>
-            ))}
-            {tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length > 0 && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 cursor-pointer hover:bg-primary/10 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Wallet className="size-5 text-primary shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length} parcelas pendentes</div>
-                    <div className="text-xs text-muted-foreground">Acompanhe no Histórico</div>
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            {despesasPct > 5 && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 cursor-pointer hover:bg-red-500/10 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <TrendingUp className="size-5 text-red-500 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">Gastos aumentaram {despesasPct}%</div>
-                    <div className="text-xs text-muted-foreground">Em relação ao mês anterior</div>
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            {totalPendente === 0 && cardTotals.every((c) => c.allPaid || c.total === 0) && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">Tudo em dia</div>
-                    <div className="text-xs text-muted-foreground">Nenhum pagamento pendente</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 4: 3-col grid */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Lançamentos recentes */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Lançamentos recentes</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate({ to: "/lancamentos" })}>
-              Ver todos <ChevronRight className="size-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {recent.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem lançamentos neste mês.</p>
-            ) : (
-              <div className="space-y-2">
-                {recent.map((t) => {
-                  const Icon = getCategoryIcon(t.category);
-                  const isEntrada = t.kind === "receita";
-                  return (
-                    <div key={t.id} className="flex items-center gap-3 py-1.5 border-b border-border/30 last:border-0">
-                      <div className={`rounded-lg p-1.5 ${isEntrada ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"}`}>
-                        <Icon className="size-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{t.description || t.category}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {formatDateBR(t.occurred_on)} · {t.category}
-                        </div>
-                      </div>
-                      <div className={`text-sm font-semibold whitespace-nowrap ${isEntrada ? "text-emerald-600" : "text-red-500"}`}>
-                        {isEntrada ? "+" : "-"}{formatBRL(Number(t.amount))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Gastos por categoria */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Gastos por categoria</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => navigate({ to: "/relatorios" })}>
-              Ver relatório <ChevronRight className="size-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {categoriaTotal.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem dados.</p>
-            ) : (
-              <div className="space-y-3">
-                {categoriaTotal.map((cat) => {
-                  const pct = Math.round((cat.value / categoriaMax) * 100);
-                  return (
-                    <div key={cat.name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-medium truncate">{cat.name}</span>
-                        <span className="text-muted-foreground">{formatBRL(cat.value)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                          style={{ width: `${Math.max(pct, 3)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="pt-2 border-t border-border/30 flex justify-between text-sm font-medium">
-                  <span>Total</span>
-                  <span>{formatBRL(totalDespesas)}</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Resumo dos cartões */}
-        <Card className="border-border/40 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Resumo dos cartões</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setDetailCardId(cardTotals[0]?.card.id ?? null)}>
-              Ver todos <ChevronRight className="size-3" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {cardTotals.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sem cartões.</p>
-            ) : (
-              <div className="space-y-4">
-                {cardTotals.slice(0, 3).map(({ card, total, count }) => {
-                  const pct = maxCardTotal > 0 ? Math.round((total / maxCardTotal) * 100) : 0;
-                  const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
-                  return (
-                    <div key={card.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="rounded-md p-1"
-                            style={{ background: brand.gradient }}
-                          >
-                            <CreditCard className="size-3.5 text-white" />
-                          </div>
-                          <span className="text-sm font-medium truncate">{card.name}</span>
-                        </div>
-                        <span className="text-sm font-semibold">{formatBRL(total)}</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${Math.max(pct, 3)}%`,
-                            background: brand.gradient,
-                          }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[11px] text-muted-foreground">
-                        <span>{card.bank} · {card.titular || "—"}</span>
-                        <span>{pct}% utilizado</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="pt-2 border-t border-border/30 flex justify-between text-sm font-medium">
-                  <span>Total utilizado</span>
-                  <span>{formatBRL(cardTotalGeral)}</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <DetailDialog
-        kind={detailKind}
-        onClose={() => setDetailKind(null)}
-        transactions={tx}
-        monthLabel={monthLabel}
-        onToggleStatus={toggleStatus}
-      />
-
-      <CardDetailDialog
-        cardId={detailCardId}
-        onClose={() => setDetailCardId(null)}
-        transactions={tx}
-        cards={cards}
-        monthLabel={monthLabel}
-        isFatturaPaga={currentClosed}
-      />
-    </div>
-  );
-}
-
-const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
-  NUBANK: { gradient: "linear-gradient(135deg, #8a05be 0%, #5b0091 100%)", border: "#8a05be" },
-  INTER: { gradient: "linear-gradient(135deg, #ff7a00 0%, #cc5800 100%)", border: "#ff7a00" },
-  ITAU: { gradient: "linear-gradient(135deg, #ec7000 0%, #003399 100%)", border: "#ec7000" },
-  BRADESCO: { gradient: "linear-gradient(135deg, #cc092f 0%, #8a0620 100%)", border: "#cc092f" },
-  SANTANDER: { gradient: "linear-gradient(135deg, #ec0000 0%, #a40000 100%)", border: "#ec0000" },
-  CAIXA: { gradient: "linear-gradient(135deg, #0070af 0%, #f39200 100%)", border: "#0070af" },
-  "BANCO DO BRASIL": { gradient: "linear-gradient(135deg, #fae100 0%, #002d72 100%)", border: "#002d72" },
-  BB: { gradient: "linear-gradient(135deg, #fae100 0%, #002d72 100%)", border: "#002d72" },
-  C6: { gradient: "linear-gradient(135deg, #2c2c2c 0%, #000000 100%)", border: "#2c2c2c" },
-  XP: { gradient: "linear-gradient(135deg, #1e1e1e 0%, #f1c700 100%)", border: "#f1c700" },
-  PICPAY: { gradient: "linear-gradient(135deg, #21c25e 0%, #0e8a3e 100%)", border: "#21c25e" },
-  DEFAULT: { gradient: "linear-gradient(135deg, oklch(0.45 0.08 250) 0%, oklch(0.3 0.06 250) 100%)", border: "oklch(0.45 0.08 250)" },
-};
-
-function CardDetailDialog({
-  cardId, onClose, transactions, cards, monthLabel, isFatturaPaga,
-}: {
-  cardId: string | null;
-  onClose: () => void;
-  transactions: Tx[];
-  cards: CardRow[];
-  monthLabel: string;
-  isFatturaPaga: boolean;
-}) {
-  const card = cardId ? cards.find((c) => c.id === cardId) ?? null : null;
-  const items = useMemo(
-    () => cardId ? transactions.filter((t) => t.payment_method === "Crédito" && t.card_id === cardId) : [],
-    [transactions, cardId],
-  );
-  const total = items.reduce((s, t) => s + Number(t.amount), 0);
-  const brand = card ? (BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT) : null;
-
-  return (
-    <Dialog open={!!cardId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
-        {card && brand && (
+        {loading ? (
+          <div className="loading-state">Carregando...</div>
+        ) : (
           <>
-            <DialogHeader>
-              <DialogTitle>Fatura {card.name} · <span className="capitalize">{monthLabel}</span></DialogTitle>
-              <DialogDescription>
-                {card.bank} · fechamento dia {card.closing_day} · vencimento dia {card.due_day}
-                {card.titular ? ` · ${card.titular}` : ""}
-              </DialogDescription>
-            </DialogHeader>
-            <div
-              className="rounded-lg p-4 text-white relative overflow-hidden"
-              style={{ background: brand.gradient }}
-            >
-              {isFatturaPaga && (
-                <Badge className="absolute right-3 top-3 bg-emerald-500 text-white border-0 gap-1">
-                  <CheckCircle2 className="size-3" /> Fatura paga
-                </Badge>
-              )}
-              <div className="text-xs uppercase tracking-wider opacity-80">Total da fatura</div>
-              <div className={`text-3xl font-bold tracking-tight ${isFatturaPaga ? "line-through opacity-70" : ""}`}>{formatBRL(total)}</div>
-              <div className="text-xs opacity-80">{items.length} {items.length === 1 ? "lançamento" : "lançamentos"}</div>
-            </div>
-            <ScrollArea className="h-[360px] rounded-md border">
-              {items.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">Nenhum lançamento neste cartão para o período.</p>
-              ) : (
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background">
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Titular</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="whitespace-nowrap">{formatDateBR(t.occurred_on)}</TableCell>
-                        <TableCell>
-                          {t.category}
-                          {t.installments_total ? (
-                            <span className="ml-1 text-xs text-muted-foreground">({t.installment_no}/{t.installments_total})</span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{t.description ?? "—"}</TableCell>
-                        <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
-                        <TableCell className="text-right font-medium whitespace-nowrap">{formatBRL(Number(t.amount))}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </ScrollArea>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-const KIND_META: Record<string, { title: string; description: string; accent: string }> = {
-  receita: {
-    title: "Receitas",
-    description: "Todas as entradas de dinheiro do período. Inclui salários, freelas, rendimentos e outros valores recebidos.",
-    accent: "text-success",
-  },
-  fixo: {
-    title: "Gastos Fixos",
-    description: "Despesas recorrentes que se repetem todo mês com valor previsível (aluguel, internet, assinaturas, contas de consumo).",
-    accent: "text-foreground",
-  },
-  variavel: {
-    title: "Gastos Variáveis",
-    description: "Despesas pontuais que variam de mês a mês (mercado, transporte, lazer, refeições fora).",
-    accent: "text-foreground",
-  },
-  parcelamento: {
-    title: "Parcelamentos",
-    description: "Compras parceladas em andamento. Cada parcela aparece no mês de competência (fatura) em que será cobrada.",
-    accent: "text-foreground",
-  },
-};
-
-function DetailDialog({
-  kind, onClose, transactions, monthLabel, onToggleStatus,
-}: {
-  kind: string | null;
-  onClose: () => void;
-  transactions: Tx[];
-  monthLabel: string;
-  onToggleStatus: (t: Tx) => void;
-}) {
-  const meta = kind ? KIND_META[kind] : null;
-  const filtered = useMemo(
-    () => kind ? transactions.filter((t) => t.kind === kind) : [],
-    [transactions, kind],
-  );
-  const total = filtered.reduce((s, t) => s + Number(t.amount), 0);
-  const byCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    filtered.forEach((t) => { map[t.category] = (map[t.category] ?? 0) + Number(t.amount); });
-    return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [filtered]);
-
-  return (
-    <Dialog open={!!kind} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
-        {meta && (
-          <>
-            <DialogHeader>
-              <DialogTitle className={meta.accent}>{meta.title} · <span className="capitalize">{monthLabel}</span></DialogTitle>
-              <DialogDescription>{meta.description}</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
-              <div>
-                <div className="text-xs text-muted-foreground">Total</div>
-                <div className={`text-lg font-semibold ${meta.accent}`}>{formatBRL(total)}</div>
+            <section className="card-highlight">
+              <div className="highlight-col">
+                <span>Saldo atual 👁️</span>
+                <div className="saldo-value">{formatBRL(saldoConta)}</div>
+                <div>
+                  <span className="badge-green">{Number(diffSaldoPct) >= 0 ? "↑" : "↓"} {Math.abs(Number(diffSaldoPct))}%</span>
+                  <span style={{ fontSize: 12, marginLeft: 8 }}>em relação ao mês anterior</span>
+                </div>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Quantidade</div>
-                <div className="text-lg font-semibold">{filtered.length}</div>
+              <div className="highlight-col" style={{ borderLeft: "1px solid var(--border)", paddingLeft: 32 }}>
+                <span>Visão geral do mês de {monthLabel}</span>
+                <p style={{ fontSize: 13 }}>
+                  Receitas <strong className="text-success">{formatBRL(receitas)}</strong> — Despesas <strong className="text-danger">{formatBRL(totalDespesas)}</strong>
+                </p>
+                <span style={{ marginTop: 12 }}>Resultado previsto</span>
+                <p style={{ fontSize: 20, fontWeight: 700 }} className="text-danger">
+                  {resultadoPrevisto >= 0 ? "" : "-"}{formatBRL(Math.abs(resultadoPrevisto))}
+                </p>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Média</div>
-                <div className="text-lg font-semibold">{formatBRL(filtered.length ? total / filtered.length : 0)}</div>
-              </div>
-            </div>
+              <button className="btn-outline">Ver detalhes completos ❯</button>
+            </section>
 
-            {byCategory.length > 0 && (
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground">Resumo por categoria</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {byCategory.map(([cat, val]) => (
-                    <Badge key={cat} variant="secondary" className="font-normal">
-                      {cat} · {formatBRL(val)}
-                    </Badge>
+            <section className="metrics-grid">
+              <div className="metric-card">
+                <div className="metric-header">
+                  <div className="icon-box" style={{ background: "#1B4332" }}>↗</div>
+                  <div className="metric-info">
+                    <h4>Receitas</h4>
+                    <h3>{formatBRL(receitas)}</h3>
+                    <p className="trend text-success">↑ {Math.abs(Number(diffReceitasPct))}% vs mês ant.</p>
+                  </div>
+                </div>
+                <div className="fake-chart-line"></div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-header">
+                  <div className="icon-box" style={{ background: "#2D6A4F" }}>💳</div>
+                  <div className="metric-info">
+                    <h4>Despesas Fixas</h4>
+                    <h3>{formatBRL(fixos)}</h3>
+                    <p className="trend text-danger">↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.</p>
+                  </div>
+                </div>
+                <div className="fake-chart-bars">
+                  {[40, 60, 30, 80, 50, 100, 40, 60].map((h, i) => (
+                    <div key={i} className="bar" style={{ height: `${h}%` }}></div>
                   ))}
                 </div>
               </div>
-            )}
+              <div className="metric-card">
+                <div className="metric-header">
+                  <div className="icon-box" style={{ background: "#40916C" }}>🛒</div>
+                  <div className="metric-info">
+                    <h4>Despesas Variáveis</h4>
+                    <h3>{formatBRL(variaveis)}</h3>
+                    <p className="trend text-danger">↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.</p>
+                  </div>
+                </div>
+                <div className="fake-chart-donut"></div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-header">
+                  <div className="icon-box" style={{ background: "#52B788" }}>📄</div>
+                  <div className="metric-info">
+                    <h4>Parcelamentos</h4>
+                    <h3>{formatBRL(parcelas)}</h3>
+                    <p className="trend text-danger">↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.</p>
+                  </div>
+                </div>
+                <ul className="card-footer-list">
+                  <li><span>Este mês</span> <strong>{formatBRL(parcelas)}</strong></li>
+                  {(() => {
+                    const nextParc = nextTx.filter((t) => t.kind === "parcelamento")
+                      .reduce((s, t) => s + Number(t.amount), 0);
+                    return <li><span>Próximos 30 dias</span> <strong>{formatBRL(nextParc)}</strong></li>;
+                  })()}
+                </ul>
+              </div>
+              <div className="metric-card">
+                <div className="metric-header">
+                  <div className="icon-box" style={{ background: "#1B4332" }}>📅</div>
+                  <div className="metric-info">
+                    <h4>A pagar (total)</h4>
+                    <h3>{formatBRL(totalPendente)}</h3>
+                    <p style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>{qtdPendentes} contas</p>
+                  </div>
+                </div>
+                {qtdPendentes > 0 && <p className="text-danger" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>Pendentes de pagamento</p>}
+              </div>
+            </section>
 
-            <ScrollArea className="h-[360px] rounded-md border">
-              {filtered.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground">Nenhum lançamento neste período.</p>
-              ) : (
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background">
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Pagamento</TableHead>
-                      <TableHead>Titular</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((t) => {
-                      const isPago = t.status === "pago";
+            <section className="middle-grid">
+              <div className="panel">
+                <div className="panel-title">Fluxo financeiro do mês</div>
+                <div className="fluxo-container">
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                    <div className="fluxo-box" style={{ borderColor: "var(--primary)" }}>
+                      <h5>Receitas</h5>
+                      <p className="text-success">{formatBRL(receitas)}</p>
+                    </div>
+                    <div style={{ marginTop: 40 }}>
+                      <h5 style={{ fontSize: 11, color: "var(--text-muted)" }}>Déficit do mês</h5>
+                      <p className="text-danger" style={{ fontSize: 18, fontWeight: 700 }}>
+                        {resultadoPrevisto >= 0 ? "" : "-"}{formatBRL(Math.abs(resultadoPrevisto))}
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <div className="fluxo-box" style={{ borderColor: "var(--danger)" }}>
+                      <h5>Total de Despesas</h5>
+                      <p className="text-danger">{formatBRL(totalDespesas)}</p>
+                    </div>
+                  </div>
+                  <div className="fluxo-col-right">
+                    {[
+                      { name: "Despesas Fixas", value: fixos },
+                      { name: "Despesas Variáveis", value: variaveis },
+                      { name: "Parcelamentos", value: parcelas },
+                      { name: "Outros", value: Math.max(0, totalDespesas - fixos - variaveis - parcelas) },
+                    ].map((d) => {
+                      const pct = totalDespesas > 0 ? ((d.value / totalDespesas) * 100).toFixed(0) : "0";
                       return (
-                      <TableRow key={t.id} className={isPago ? "bg-emerald-500/5" : ""}>
-                        <TableCell className="whitespace-nowrap">{formatDateBR(t.occurred_on)}</TableCell>
-                        <TableCell>
-                          {t.category}
-                          {t.installments_total ? (
-                            <span className="ml-1 text-xs text-muted-foreground">
-                              ({t.installment_no}/{t.installments_total})
-                            </span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{t.description ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {t.payment_method ?? "—"}{t.bank ? ` · ${t.bank}` : ""}
-                        </TableCell>
-                        <TableCell className="text-xs">{t.titular ?? "—"}</TableCell>
-                        <TableCell>
-                          {kind !== "receita" ? (
-                            <button
-                              type="button"
-                              onClick={() => onToggleStatus(t)}
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                                isPago
-                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
-                                  : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-                              }`}
-                            >
-                              {isPago ? <CheckCircle2 className="size-3" /> : <Circle className="size-3" />}
-                              {isPago ? "Liquidado" : "Pendente"}
-                            </button>
-                          ) : <span className="text-xs text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell className={`text-right font-medium whitespace-nowrap ${meta.accent} ${isPago && kind !== "receita" ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
-                          {formatBRL(Number(t.amount))}
-                        </TableCell>
-                      </TableRow>
+                        <div className="fluxo-item" key={d.name}>
+                          <div>
+                            <strong className="text-success">{d.name}</strong><br />{formatBRL(d.value)}
+                          </div>
+                          <span className="perc">{pct}%</span>
+                        </div>
                       );
                     })}
-                  </TableBody>
-                </Table>
-              )}
-            </ScrollArea>
+                  </div>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-title">🔔 Alertas e avisos</div>
+                <div className="alerts-list">
+                  {cardTotals.filter((ct) => ct.total > 0).length > 0 ? (
+                    cardTotals.filter((ct) => ct.total > 0).slice(0, 2).map((ct) => {
+                      const pendentes = ct.items.filter((i) => i.status !== "pago").length;
+                      return (
+                        <div className="alert-item" key={ct.card.id}>
+                          <div className="alert-icon" style={{ background: "#FFF3E0", color: "#E65100" }}>💳</div>
+                          <div className="alert-info">
+                            <h4>{ct.card.name}</h4>
+                            <p>{pendentes > 0 ? `${pendentes} pendente(s)` : "Fatura aberta"} • {formatBRL(ct.total)}</p>
+                          </div>
+                          <div className="alert-chevron">❯</div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="alert-item">
+                      <div className="alert-icon" style={{ background: "var(--success-bg)", color: "var(--primary)" }}>✅</div>
+                      <div className="alert-info">
+                        <h4>Nenhum alerta</h4>
+                        <p>Todas as contas em dia</p>
+                      </div>
+                    </div>
+                  )}
+                  {qtdPendentes > 0 && (
+                    <div className="alert-item">
+                      <div className="alert-icon" style={{ background: "#FFEBEE", color: "#C62828" }}>⚠️</div>
+                      <div className="alert-info">
+                        <h4>{qtdPendentes} pendência(s)</h4>
+                        <p>Total de {formatBRL(totalPendente)} a pagar</p>
+                      </div>
+                      <div className="alert-chevron">❯</div>
+                    </div>
+                  )}
+                  {nextOutflow > 0 && (
+                    <div className="alert-item">
+                      <div className="alert-icon" style={{ background: "#FFF8E1", color: "#F57F17" }}>📈</div>
+                      <div className="alert-info">
+                        <h4>Próximo mês</h4>
+                        <p>{formatBRL(nextOutflow)} em despesas projetadas</p>
+                      </div>
+                      <div className="alert-chevron">❯</div>
+                    </div>
+                  )}
+                </div>
+                <div className="link-all"><a href="#">Ver todos os alertas</a></div>
+              </div>
+            </section>
+
+            <section className="bottom-grid">
+              <div className="panel">
+                <div className="panel-title">
+                  Lançamentos recentes
+                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>Ver todos</button>
+                </div>
+                {recent.length === 0 ? (
+                  <div className="empty-text">Nenhum lançamento neste mês.</div>
+                ) : (
+                  <table className="list-table">
+                    <tbody>
+                      {recent.map((t) => {
+                        const isReceita = t.kind === "receita";
+                        const kindInfo = KINDS.find((k) => k.value === t.kind);
+                        const icon = isReceita ? "💵" : t.kind === "fixo" ? "📋" : "🛒";
+                        return (
+                          <tr key={t.id}>
+                            <td style={{ width: 30, textAlign: "center" }}>{icon}</td>
+                            <td>{formatDateBR(t.occurred_on)}<br /><strong>{t.description || t.category}</strong></td>
+                            <td style={{ color: "var(--text-muted)" }}>{kindInfo?.label ?? t.kind}</td>
+                            <td className={isReceita ? "text-success" : "text-danger"}>
+                              {isReceita ? "+ " : "- "}{formatBRL(Number(t.amount))}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="panel">
+                <div className="panel-title">
+                  Gastos por categoria
+                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>Ver relatório</button>
+                </div>
+                {catExpenses.length === 0 ? (
+                  <div className="empty-text">Nenhum gasto neste mês.</div>
+                ) : (
+                  catExpenses.slice(0, 5).map((c) => {
+                    const pct = catTotal > 0 ? ((c.value / catTotal) * 100).toFixed(0) : "0";
+                    const icons: Record<string, string> = { moradia: "🏠", crédito: "💳", transporte: "🚗", alimenta: "🛒", saúde: "⚕️" };
+                    const icon = Object.entries(icons).find(([k]) => c.name.toLowerCase().includes(k))?.[1] ?? "📄";
+                    return (
+                      <div className="progress-item" key={c.name}>
+                        <div className="progress-header">
+                          <span>{icon} {c.name}</span>
+                          <span>{formatBRL(c.value)} ({pct}%)</span>
+                        </div>
+                        <div className="progress-bar-bg"><div className="progress-fill" style={{ width: `${pct}%` }}></div></div>
+                      </div>
+                    );
+                  })
+                )}
+                <div className="total-row"><span>Total</span><span>{formatBRL(catTotal)}</span></div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-title">
+                  Resumo dos cartões
+                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>Ver todos</button>
+                </div>
+                {cardTotals.length === 0 ? (
+                  <div className="empty-text">Nenhum cartão cadastrado.</div>
+                ) : cardTotals.map((ct) => {
+                  const bankKey = ct.card.bank.toUpperCase();
+                  const brandColor = BANK_COLORS[bankKey] || "#666";
+                  const logoClass = bankKey === "NUBANK" ? "nu" : bankKey === "INTER" ? "inter" : "";
+                  const limit = ct.card.credit_limit ?? 0;
+                  const usedPct = limit > 0 ? Math.min(100, (ct.total / limit) * 100).toFixed(0) : "0";
+                  return (
+                    <div className="card-summary-item" key={ct.card.id}>
+                      <div className="card-header">
+                        <div className="card-brand">
+                          <div className={`card-logo ${logoClass}`} style={!logoClass ? { backgroundColor: brandColor } : {}}>
+                            {ct.card.bank.slice(0, 2).toLowerCase()}
+                          </div>
+                          {ct.card.name}
+                        </div>
+                        <div className="card-value">
+                          {formatBRL(ct.total)}
+                          {limit > 0 && <span className="card-limit">Limite: {formatBRL(limit)}</span>}
+                          {limit === 0 && <span className="card-limit">Sem limite registrado</span>}
+                        </div>
+                      </div>
+                      {limit > 0 && (
+                        <div className="card-progress">
+                          <div className="progress-bar-bg"><div className="progress-fill" style={{ width: `${usedPct}%`, background: brandColor }}></div></div>
+                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{usedPct}%</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {cardTotals.length > 0 && (
+                  <div className="total-row" style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 24 }}>
+                    <span>Total utilizado</span>
+                    <span className="text-success">{formatBRL(cardTotalSum)}</span>
+                  </div>
+                )}
+              </div>
+            </section>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>
   );
 }
