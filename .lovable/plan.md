@@ -1,37 +1,72 @@
-## Objetivo
-Adicionar status "pago/pendente" aos lançamentos, refletir fatura de cartão já liquidada, recalcular o saldo principal de Maio e exibir um card de "Planejamento para Junho" no Dashboard.
+# Plano: Gestão Orçamentária + Dashboard redesenhado
 
-## 1. Banco de dados
-- Adicionar coluna `status text not null default 'pendente'` à tabela `transactions` (valores: `'pago' | 'pendente'`).
-- Backfill: marcar como `'pago'` automaticamente todos os lançamentos cuja `competence_month` esteja em `closed_months` (mesma regra — fatura/mês fechado = liquidado).
+Vou implementar duas grandes mudanças no Cesar Finanças, baseadas nas imagens enviadas.
 
-## 2. Lógica de competência (já existe)
-- A função `computeCompetenceMonth` já empurra gastos para o próximo mês quando o mês-base está em `closed_months`. Item 2 do pedido (compras pós-fechamento vão para Junho) já está coberto — sem mudanças.
+## 1. Nova página: Gestão Orçamentária (`/orcamentos`)
 
-## 3. Lançamentos (`lancamentos.tsx`)
-- Novo seletor "Status" (Pago / Pendente) no formulário, default Pendente.
-- Coluna "Status" na tabela com badge verde "Liquidado" / âmbar "Pendente".
-- Botão rápido para alternar status direto na linha (check icon).
+Replica a imagem 1. Permite definir um orçamento mensal por categoria e acompanhar o uso real (vs. transações lançadas).
 
-## 4. Dashboard (`dashboard.tsx`)
-- **Cards principais** ganham subtítulos:
-  - "Receitas" — sem mudança.
-  - "Gastos" — divide em `Pagos` e `Pendentes` (soma total continua igual).
-  - **Saldo** passa a refletir a nova fórmula:
-    `Saldo = Receitas − (Gastos com status='pago' no mês, todas as formas de pagamento, incluindo a fatura de crédito do mês que foi marcada como paga)`.
-    Gastos pendentes deixam de impactar o saldo (aparecem só como "a pagar").
-- **Card "Planejamento para {próximo mês}"** (lateral, ao lado de Receitas/Gastos): soma `amount` de transações com `competence_month = next_month`, mostrando total e quebra rápida (fixos/variáveis/crédito).
-- **Modal de detalhamento** dos cards mostra badge de status por linha.
-- **Resumo por cartão** mostra badge "Fatura paga" quando o `competence_month` correspondente está em `closed_months`, e exibe o valor riscado/em verde.
+**Banco de dados** (nova migração):
+- Tabela `monthly_budgets` (user_id, competence_month, total_amount, tip_text)
+- Tabela `category_budgets` (user_id, competence_month, category, planned_amount)
+- RLS por `user_id`
 
-## 5. Considerações de UI
-- Verde semântico: usar `text-emerald-600 / bg-emerald-500/10` (tokens existentes via Tailwind).
-- Mantém filtros de titular e mês.
+**UI da página** (`src/routes/_authenticated/orcamentos.tsx`):
+- Header com seletor Mês/Ano e botão "Marcar leitura como paga"
+- 4 cards de resumo: Orçamento mensal, Total utilizado, Restante, Previsto até fim do mês
+- Donut chart % utilizado (recharts)
+- Tabela "Orçamento por categorias": Categoria, Orçamento, Gasto (real do mês), Barra de progresso, %, Restante, Status (Normal/Atenção/Ultrapassado)
+- Card lateral "Previsão de gastos" (baseado na média dos últimos 3 meses) com badge Provável ultrapassar / Ultrapassará / Dentro do limite
+- Card "Resumo orçamentário" — distribuição Necessidades / Desejos / Poupança (donut + legenda com %)
+- Card "Planejamento do mês" com dica editável
+- Card "Metas financeiras" (puxa de `goals` existente)
+- Card "Dicas para o mês" gerado dinamicamente conforme estado das categorias
 
-## Arquivos afetados
-- `supabase/migrations/*_add_status_to_transactions.sql`
-- `src/lib/finance-constants.ts` (constante `TRANSACTION_STATUS`)
-- `src/routes/_authenticated/lancamentos.tsx` (form + tabela + toggle)
-- `src/routes/_authenticated/dashboard.tsx` (saldo, gastos pagos/pendentes, card de Junho, badge de cartão)
+## 2. Redesign do Dashboard (`/dashboard`)
 
-Após aprovação, executo a migração e em seguida as edições de código.
+Reorganiza a página atual para combinar com a imagem 2.
+
+- **Card grande de Saldo**: Saldo atual (grande, verde), variação vs mês anterior, "Visão geral do mês" (Receitas / Despesas), Resultado previsto, botão "Ver detalhes completos"
+- **5 KPI cards em linha**: Receitas, Despesas Fixas, Despesas Variáveis, Parcelamentos, A pagar (total) — cada um com mini gráfico (sparkline / barras / donut)
+- **Card "Fluxo financeiro do mês"** com diagrama Sankey-like simplificado: Receitas → Total Despesas → quebra em Fixas/Variáveis/Parcelamentos/Outros (% e valor por bucket), Déficit/Superávit do mês
+- **Card "Alertas e avisos"**: cartões a vencer, parcelas próximas, variação de gastos
+- **Lançamentos recentes** (últimos 5)
+- **Gastos por categoria** (top 6 com barra horizontal)
+- **Resumo dos cartões** (uso de limite com barra de progresso)
+
+## 3. Itens da lateral
+
+Adicionar à sidebar do `AppShell`, agrupados:
+
+**FINANCEIRO**: Contas, Orçamentos, Planejamento  
+**CONFIGURAÇÕES**: Configurações, Backup e Dados
+
+Páginas novas (stubs funcionais para já existirem rotas):
+- `/contas` — lista de contas bancárias (tabela `accounts` com saldo, banco, tipo)
+- `/planejamento` — visão futura simplificada (reutiliza dados)
+- `/configuracoes` — preferências do usuário (tema, moeda padrão)
+- `/backup` — exportar dados em JSON/CSV e importar
+
+Apenas `/contas`, `/configuracoes` e `/backup` precisam de banco novo:
+- `accounts` (user_id, name, bank, type, balance, color)
+- `user_preferences` (user_id, theme, default_titular, currency, tip_planejamento)
+
+## Ordem de execução
+
+1. Migração SQL (todas as tabelas novas + RLS) → aguardar aprovação
+2. Atualizar `AppShell` com grupos da sidebar
+3. Criar rotas stub (`/contas`, `/planejamento`, `/configuracoes`, `/backup`)
+4. Implementar `/orcamentos` completo
+5. Redesenhar `/dashboard`
+6. QA visual rápido
+
+## Detalhes técnicos
+
+- Cálculo "Previsto até fim do mês" = gasto atual + (média diária × dias restantes)
+- "Previsão de gastos" por categoria = média dos últimos 3 meses fechados
+- Status: Normal (<80%), Atenção (80-99%), Ultrapassado (≥100%)
+- Necessidades = Moradia, Alimentação, Transporte, Saúde, Educação (configurável depois)
+- Desejos = Lazer, Outros
+- Poupança = saldo positivo + aportes em Metas
+- Donut/Sankey via `recharts` (já instalado)
+- Tudo respeita filtro de `titular` global e `competence_month`

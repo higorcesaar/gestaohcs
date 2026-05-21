@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          balance: number
+          bank: string | null
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          titular: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          bank?: string | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          titular?: string | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          bank?: string | null
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          titular?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       allowed_emails: {
         Row: {
           added_by: string | null
@@ -98,6 +137,39 @@ export type Database = {
         }
         Relationships: []
       }
+      category_budgets: {
+        Row: {
+          category: string
+          competence_month: string
+          created_at: string
+          group_kind: string
+          id: string
+          planned_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          competence_month: string
+          created_at?: string
+          group_kind?: string
+          id?: string
+          planned_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          competence_month?: string
+          created_at?: string
+          group_kind?: string
+          id?: string
+          planned_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       closed_months: {
         Row: {
           closed_at: string
@@ -144,6 +216,36 @@ export type Database = {
           id?: string
           name?: string
           target_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      monthly_budgets: {
+        Row: {
+          competence_month: string
+          created_at: string
+          id: string
+          tip_text: string | null
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competence_month: string
+          created_at?: string
+          id?: string
+          tip_text?: string | null
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competence_month?: string
+          created_at?: string
+          id?: string
+          tip_text?: string | null
+          total_amount?: number
           updated_at?: string
           user_id?: string
         }
@@ -270,6 +372,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          currency: string | null
+          default_titular: string | null
+          theme: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          default_titular?: string | null
+          theme?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          default_titular?: string | null
+          theme?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
