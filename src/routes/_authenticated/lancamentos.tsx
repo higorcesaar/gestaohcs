@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import {
-  KINDS, TITULARES, PAYMENT_METHODS, BANKS, formatBRL,
-  computeCompetenceMonth, addMonths, formatDateBR, formatCompetenceBR,
+  KINDS,
+  TITULARES,
+  PAYMENT_METHODS,
+  BANKS,
+  formatBRL,
+  computeCompetenceMonth,
+  addMonths,
+  formatDateBR,
+  formatCompetenceBR,
   computeDueDate,
 } from "@/lib/finance-constants";
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
@@ -34,27 +41,71 @@ interface Tx {
 }
 
 interface CardRow {
-  id: string; name: string; bank: string; closing_day: number; due_day: number; titular: string | null;
-  dias_antecedencia_fechamento?: number | null; credit_limit?: number;
+  id: string;
+  name: string;
+  bank: string;
+  closing_day: number;
+  due_day: number;
+  titular: string | null;
+  dias_antecedencia_fechamento?: number | null;
+  credit_limit?: number;
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
-  uber: "🚗", "99": "🚗", lazer: "🎮", restaurante: "🍽️",
-  alimentação: "🛒", lanches: "🍔", farmácia: "💊", transporte: "🚌",
-  cinema: "🎬", estacionamento: "🅿️", presentes: "🎁", oferta: "💰",
-  doações: "🤝", shope: "📦", construção: "🔨",
-  celular: "📱", computador: "💻", relógio: "⌚", viagem: "✈️",
-  hospedagem: "🏨", óculos: "👓", roupas: "👕",
-  salário: "💼", freelance: "💻", rendimento: "📈", outros: "📋",
-  mei: "🏢", financiamento: "🏠", feira: "🥬", iptu: "🏛️", ipva: "🚗",
-  energia: "⚡", água: "💧", internet: "🌐", streaming: "📺",
-  gás: "🔥", salão: "💇", barbearia: "💈", academia: "🏋️",
-  "plano de saúde": "🏥", faculdade: "🎓", dízimo: "⛪", seguro: "🛡️",
-  consórcio: "📋", mercado: "🛒", padaria: "🥖", gasolina: "⛽",
+  uber: "🚗",
+  "99": "🚗",
+  lazer: "🎮",
+  restaurante: "🍽️",
+  alimentação: "🛒",
+  lanches: "🍔",
+  farmácia: "💊",
+  transporte: "🚌",
+  cinema: "🎬",
+  estacionamento: "🅿️",
+  presentes: "🎁",
+  oferta: "💰",
+  doações: "🤝",
+  shope: "📦",
+  construção: "🔨",
+  celular: "📱",
+  computador: "💻",
+  relógio: "⌚",
+  viagem: "✈️",
+  hospedagem: "🏨",
+  óculos: "👓",
+  roupas: "👕",
+  salário: "💼",
+  freelance: "💻",
+  rendimento: "📈",
+  outros: "📋",
+  mei: "🏢",
+  financiamento: "🏠",
+  feira: "🥬",
+  iptu: "🏛️",
+  ipva: "🚗",
+  energia: "⚡",
+  água: "💧",
+  internet: "🌐",
+  streaming: "📺",
+  gás: "🔥",
+  salão: "💇",
+  barbearia: "💈",
+  academia: "🏋️",
+  "plano de saúde": "🏥",
+  faculdade: "🎓",
+  dízimo: "⛪",
+  seguro: "🛡️",
+  consórcio: "📋",
+  mercado: "🛒",
+  padaria: "🥖",
+  gasolina: "⛽",
 };
 
 function iconForCategory(cat: string): string {
-  const key = cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const key = cat
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   for (const [k, v] of Object.entries(CATEGORY_ICONS)) {
     if (key.includes(k)) return v;
   }
@@ -104,7 +155,11 @@ function Lancamentos() {
 
   async function load() {
     setLoading(true);
-    let q = supabase.from("transactions").select("*").order("occurred_on", { ascending: false }).limit(200);
+    let q = supabase
+      .from("transactions")
+      .select("*")
+      .order("occurred_on", { ascending: false })
+      .limit(200);
     q = applyTitular(q, gTitular);
     const { data, error } = await q;
     if (error) toast.error(error.message);
@@ -117,8 +172,13 @@ function Lancamentos() {
     setCards((data ?? []) as CardRow[]);
   }
 
-  useEffect(() => { load(); }, [gTitular]);
-  useEffect(() => { loadCards(); }, []);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gTitular]);
+  useEffect(() => {
+    loadCards();
+  }, []);
 
   const isCard = payment === "Crédito" || payment === "Débito";
   const filteredCards = cards.filter((c) => !titular || !c.titular || c.titular === titular);
@@ -150,15 +210,21 @@ function Lancamentos() {
       if (competenceFilter !== "all" && t.competence_month !== competenceFilter) return false;
       if (competenceFilter === "all" && t.installment_no && t.installment_no > 1) return false;
       if (activeFilter === "hoje" && t.occurred_on !== today) return false;
-      if (activeFilter === "semana" && (t.occurred_on < week.start || t.occurred_on > week.end)) return false;
+      if (activeFilter === "semana" && (t.occurred_on < week.start || t.occurred_on > week.end))
+        return false;
       if (activeFilter === "pendentes" && t.status !== "pendente") return false;
       if (activeFilter === "receitas" && t.kind !== "receita") return false;
       if (activeFilter === "despesas" && t.kind === "receita") return false;
       if (!q) return true;
       const haystack = [
-        t.description ?? "", t.category ?? "", t.bank ?? "",
-        String(t.amount), formatBRL(Number(t.amount)),
-      ].join(" ").toLowerCase();
+        t.description ?? "",
+        t.category ?? "",
+        t.bank ?? "",
+        String(t.amount),
+        formatBRL(Number(t.amount)),
+      ]
+        .join(" ")
+        .toLowerCase();
       return haystack.includes(q);
     });
   }, [list, search, competenceFilter, activeFilter]);
@@ -166,11 +232,14 @@ function Lancamentos() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITENS_PER_PAGE));
   const paginated = filtered.slice((page - 1) * ITENS_PER_PAGE, page * ITENS_PER_PAGE);
 
-  useEffect(() => { setPage(1); }, [search, competenceFilter, activeFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, competenceFilter, activeFilter]);
 
   const kpis = useMemo(() => {
     const total = filtered.length;
-    let receitas = 0, despesas = 0;
+    let receitas = 0,
+      despesas = 0;
     for (const t of filtered) {
       if (t.kind === "receita") receitas += Number(t.amount);
       else despesas += Number(t.amount);
@@ -216,7 +285,9 @@ function Lancamentos() {
     }
 
     const baseCompetence = computeCompetenceMonth(
-      date, payment, payment === "Crédito" ? selectedCard : null,
+      date,
+      payment,
+      payment === "Crédito" ? selectedCard : null,
       closedMonths,
     );
 
@@ -266,39 +337,49 @@ function Lancamentos() {
     if (error) return toast.error("Erro ao salvar", { description: error.message });
 
     toast.success(isParcel ? `${rows.length} parcelas registradas` : "Lançamento adicionado");
-    setAmount(""); setDescription(""); setInstNo(""); setInstTotal(""); setNewCategory("");
+    setAmount("");
+    setDescription("");
+    setInstNo("");
+    setInstTotal("");
+    setNewCategory("");
     load();
   }
 
   async function remove(id: string) {
     const { error } = await supabase.from("transactions").delete().eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Removido"); load(); }
+    else {
+      toast.success("Removido");
+      load();
+    }
   }
 
   async function toggleStatus(t: Tx) {
     const next = t.status === "pago" ? "pendente" : "pago";
-    const { error } = await supabase
-      .from("transactions")
-      .update({ status: next })
-      .eq("id", t.id);
+    const { error } = await supabase.from("transactions").update({ status: next }).eq("id", t.id);
     if (error) return toast.error(error.message);
     toast.success(next === "pago" ? "Marcado como pago" : "Marcado como pendente");
-    setList((prev) => prev.map((x) => x.id === t.id ? { ...x, status: next } : x));
+    setList((prev) => prev.map((x) => (x.id === t.id ? { ...x, status: next } : x)));
   }
 
   const selectedCard = cards.find((c) => c.id === cardId) ?? null;
   const compPreview = computeCompetenceMonth(
-    date, payment, payment === "Crédito" ? selectedCard : null,
+    date,
+    payment,
+    payment === "Crédito" ? selectedCard : null,
     closedMonths,
   );
   const compBase = computeCompetenceMonth(
-    date, payment, payment === "Crédito" ? selectedCard : null,
+    date,
+    payment,
+    payment === "Crédito" ? selectedCard : null,
     [],
   );
   const compShifted = compPreview !== compBase;
-  const dueDate = payment === "Crédito" && selectedCard?.due_day
-    ? computeDueDate(compPreview, selectedCard.due_day) : null;
+  const dueDate =
+    payment === "Crédito" && selectedCard?.due_day
+      ? computeDueDate(compPreview, selectedCard.due_day)
+      : null;
 
   return (
     <>
@@ -465,20 +546,34 @@ function Lancamentos() {
       `}</style>
 
       <div className="lc">
-        <div className="flex justify-between items-start mb-6" style={{ flexWrap: "wrap", gap: 12 }}>
+        <div
+          className="flex justify-between items-start mb-6"
+          style={{ flexWrap: "wrap", gap: 12 }}
+        >
           <div>
             <h1>Lançamentos</h1>
-            <p className="subtitle">Registre e acompanhe todas as suas movimentações financeiras.</p>
+            <p className="subtitle">
+              Registre e acompanhe todas as suas movimentações financeiras.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
               {formatCompetenceBR(compPreview)}
             </span>
-            <button className="date-picker" style={{
-              background: "var(--white)", border: "1px solid var(--border-color)",
-              padding: "10px 16px", borderRadius: "var(--radius-md)",
-              fontSize: 14, fontWeight: 500, cursor: "pointer",
-            }}>📅 Maio / 2026 ▾</button>
+            <button
+              className="date-picker"
+              style={{
+                background: "var(--white)",
+                border: "1px solid var(--border-color)",
+                padding: "10px 16px",
+                borderRadius: "var(--radius-md)",
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              📅 Maio / 2026 ▾
+            </button>
             <div style={{ fontSize: 20, cursor: "pointer" }}>🔔</div>
           </div>
         </div>
@@ -535,7 +630,9 @@ function Lancamentos() {
             <select value={competenceFilter} onChange={(e) => setCompetenceFilter(e.target.value)}>
               <option value="all">Todas competências</option>
               {competenceOptions.map((c) => (
-                <option key={c} value={c}>{formatCompetenceBR(c)}</option>
+                <option key={c} value={c}>
+                  {formatCompetenceBR(c)}
+                </option>
               ))}
             </select>
             <input
@@ -548,7 +645,9 @@ function Lancamentos() {
         </section>
 
         <section className="form-card">
-          <h3><span>➕</span> Novo lançamento</h3>
+          <h3>
+            <span>➕</span> Novo lançamento
+          </h3>
           <form onSubmit={add}>
             <div className="form-grid">
               <div className="form-group">
@@ -559,7 +658,10 @@ function Lancamentos() {
                       key={t.value}
                       type="button"
                       className={`type-btn ${kind === t.value ? "active" : ""}`}
-                      onClick={() => { setKind(t.value); setCategory(""); }}
+                      onClick={() => {
+                        setKind(t.value);
+                        setCategory("");
+                      }}
                     >
                       {t.label}
                     </button>
@@ -568,10 +670,16 @@ function Lancamentos() {
               </div>
               <div className="form-group">
                 <label>Categoria</label>
-                <select className="form-control" value={category} onChange={(e) => setCategory(e.target.value)}>
+                <select
+                  className="form-control"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
                   <option value="">Selecione</option>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -590,15 +698,18 @@ function Lancamentos() {
             <div className="form-row-bottom">
               <div className="form-group">
                 <label>Data</label>
-                <input type="date" className="form-control" value={date} onChange={(e) => setDate(e.target.value)} />
+                <input
+                  type="date"
+                  className="form-control"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
                 <div className={`comp-hint ${compShifted ? "shifted" : "normal"}`}>
                   Competência: {formatCompetenceBR(compPreview)}
                   {compShifted ? " (mês anterior fechado)" : ""}
                 </div>
                 {dueDate && (
-                  <div className="comp-hint normal">
-                    Vencimento: {formatDateBR(dueDate)}
-                  </div>
+                  <div className="comp-hint normal">Vencimento: {formatDateBR(dueDate)}</div>
                 )}
               </div>
               <div className="form-group">
@@ -613,10 +724,16 @@ function Lancamentos() {
               </div>
               <div className="form-group">
                 <label>Titular</label>
-                <select className="form-control" value={titular} onChange={(e) => setTitular(e.target.value)}>
+                <select
+                  className="form-control"
+                  value={titular}
+                  onChange={(e) => setTitular(e.target.value)}
+                >
                   <option value="">—</option>
                   {TITULARES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -625,10 +742,20 @@ function Lancamentos() {
             <div className="form-row-bottom">
               <div className="form-group">
                 <label>Forma de pagamento</label>
-                <select className="form-control" value={payment} onChange={(e) => { setPayment(e.target.value); setBank(""); setCardId(""); }}>
+                <select
+                  className="form-control"
+                  value={payment}
+                  onChange={(e) => {
+                    setPayment(e.target.value);
+                    setBank("");
+                    setCardId("");
+                  }}
+                >
                   <option value="">—</option>
                   {PAYMENT_METHODS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -640,29 +767,47 @@ function Lancamentos() {
               ) : isCard ? (
                 <div className="form-group">
                   <label>Cartão</label>
-                  <select className="form-control" value={cardId} onChange={(e) => setCardId(e.target.value)}>
+                  <select
+                    className="form-control"
+                    value={cardId}
+                    onChange={(e) => setCardId(e.target.value)}
+                  >
                     <option value="">Selecione um cartão</option>
                     {filteredCards.length === 0 ? (
                       <option disabled>Cadastre cartões na aba Cartões</option>
-                    ) : filteredCards.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.bank})</option>
-                    ))}
+                    ) : (
+                      filteredCards.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.bank})
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               ) : (
                 <div className="form-group">
                   <label>Banco</label>
-                  <select className="form-control" value={bank} onChange={(e) => setBank(e.target.value)}>
+                  <select
+                    className="form-control"
+                    value={bank}
+                    onChange={(e) => setBank(e.target.value)}
+                  >
                     <option value="">—</option>
                     {BANKS.map((b) => (
-                      <option key={b} value={b}>{b}</option>
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
                     ))}
                   </select>
                 </div>
               )}
               <div className="form-group">
                 <label>Status</label>
-                <select className="form-control" value={status} onChange={(e) => setStatus(e.target.value as "pendente" | "pago")}>
+                <select
+                  className="form-control"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as "pendente" | "pago")}
+                >
                   <option value="pendente">Pendente</option>
                   <option value="pago">Pago / Liquidado</option>
                 </select>
@@ -673,11 +818,24 @@ function Lancamentos() {
               <div className="form-row-installments">
                 <div className="form-group">
                   <label>Parcela inicial</label>
-                  <input type="number" min={1} className="form-control" value={instNo} onChange={(e) => setInstNo(e.target.value)} placeholder="1" />
+                  <input
+                    type="number"
+                    min={1}
+                    className="form-control"
+                    value={instNo}
+                    onChange={(e) => setInstNo(e.target.value)}
+                    placeholder="1"
+                  />
                 </div>
                 <div className="form-group">
                   <label>Total de parcelas</label>
-                  <input type="number" min={1} className="form-control" value={instTotal} onChange={(e) => setInstTotal(e.target.value)} />
+                  <input
+                    type="number"
+                    min={1}
+                    className="form-control"
+                    value={instTotal}
+                    onChange={(e) => setInstTotal(e.target.value)}
+                  />
                 </div>
               </div>
             )}
@@ -685,9 +843,17 @@ function Lancamentos() {
             <div className="form-group description-block">
               <div style={{ flex: 1 }}>
                 <label>Descrição</label>
-                <input type="text" className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opcional" />
+                <input
+                  type="text"
+                  className="form-control"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Opcional"
+                />
               </div>
-              <button type="submit" className="btn-submit">＋ Adicionar lançamento</button>
+              <button type="submit" className="btn-submit">
+                ＋ Adicionar lançamento
+              </button>
             </div>
           </form>
         </section>
@@ -706,54 +872,83 @@ function Lancamentos() {
             <div className="loading-state">Carregando...</div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">Nenhum lançamento encontrado.</div>
-          ) : paginated.map((t) => {
-            const isPago = t.status === "pago";
-            const isReceita = t.kind === "receita";
-            const cardLabel = t.card_id ? cardNameById[t.card_id] : t.bank;
-            const icon = iconForCategory(t.category);
-            const kindLabel = KINDS.find((x) => x.value === t.kind)?.label ?? t.kind;
+          ) : (
+            paginated.map((t) => {
+              const isPago = t.status === "pago";
+              const isReceita = t.kind === "receita";
+              const cardLabel = t.card_id ? cardNameById[t.card_id] : t.bank;
+              const icon = iconForCategory(t.category);
+              const kindLabel = KINDS.find((x) => x.value === t.kind)?.label ?? t.kind;
 
-            return (
-              <div className="history-item" key={t.id}>
-                <div className="item-main">
-                  <div className="item-icon" style={{
-                    background: isReceita ? "var(--green-light)" : isPago ? "var(--green-light)" : "var(--orange-light)",
-                    color: isReceita ? "var(--green-primary)" : isPago ? "var(--green-primary)" : "var(--orange-text)",
-                  }}>{icon}</div>
-                  <div className="item-title">
-                    <h4>{t.category}</h4>
-                    <p>{t.description || kindLabel}{t.installment_no && t.installments_total ? ` (${t.installment_no}/${t.installments_total})` : ""}</p>
+              return (
+                <div className="history-item" key={t.id}>
+                  <div className="item-main">
+                    <div
+                      className="item-icon"
+                      style={{
+                        background: isReceita
+                          ? "var(--green-light)"
+                          : isPago
+                            ? "var(--green-light)"
+                            : "var(--orange-light)",
+                        color: isReceita
+                          ? "var(--green-primary)"
+                          : isPago
+                            ? "var(--green-primary)"
+                            : "var(--orange-text)",
+                      }}
+                    >
+                      {icon}
+                    </div>
+                    <div className="item-title">
+                      <h4>{t.category}</h4>
+                      <p>
+                        {t.description || kindLabel}
+                        {t.installment_no && t.installments_total
+                          ? ` (${t.installment_no}/${t.installments_total})`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="item-meta">
+                    {t.payment_method ?? "—"}
+                    <span>{cardLabel ?? "—"}</span>
+                  </div>
+                  <div className="item-meta">
+                    {formatDateBR(t.occurred_on)}
+                    <span>{formatCompetenceBR(t.competence_month)}</span>
+                  </div>
+                  <div>
+                    <button
+                      className={`badge-status ${isPago ? "pago" : "pendente"}`}
+                      onClick={() => toggleStatus(t)}
+                      title="Clique para alternar"
+                    >
+                      ● {isPago ? "Pago" : "Pendente"}
+                    </button>
+                  </div>
+                  <div className={`item-value ${isReceita ? "positive" : "negative"}`}>
+                    {isReceita ? "" : "-"}
+                    {formatBRL(Number(t.amount))}
+                  </div>
+                  <div className="item-actions">
+                    <button
+                      className="btn-icon danger"
+                      onClick={() => remove(t.id)}
+                      title="Remover"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
-                <div className="item-meta">
-                  {t.payment_method ?? "—"}
-                  <span>{cardLabel ?? "—"}</span>
-                </div>
-                <div className="item-meta">
-                  {formatDateBR(t.occurred_on)}
-                  <span>{formatCompetenceBR(t.competence_month)}</span>
-                </div>
-                <div>
-                  <button
-                    className={`badge-status ${isPago ? "pago" : "pendente"}`}
-                    onClick={() => toggleStatus(t)}
-                    title="Clique para alternar"
-                  >
-                    ● {isPago ? "Pago" : "Pendente"}
-                  </button>
-                </div>
-                <div className={`item-value ${isReceita ? "positive" : "negative"}`}>
-                  {isReceita ? "" : "-"}{formatBRL(Number(t.amount))}
-                </div>
-                <div className="item-actions">
-                  <button className="btn-icon danger" onClick={() => remove(t.id)} title="Remover">✕</button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
           {!loading && filtered.length > ITENS_PER_PAGE && (
             <div className="pagination">
-              <button className="page-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
+              <button className="page-btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                ‹
+              </button>
               {(() => {
                 const pages: (number | string)[] = [];
                 const delta = 1;
@@ -766,13 +961,27 @@ function Lancamentos() {
                 if (totalPages > 1) pages.push(totalPages);
                 return pages.map((p, i) =>
                   typeof p === "string" ? (
-                    <span key={`ellipsis-${i}`} className="page-info">{p}</span>
+                    <span key={`ellipsis-${i}`} className="page-info">
+                      {p}
+                    </span>
                   ) : (
-                    <button key={p} className={`page-btn ${page === p ? "active" : ""}`} onClick={() => setPage(p)}>{p}</button>
-                  )
+                    <button
+                      key={p}
+                      className={`page-btn ${page === p ? "active" : ""}`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  ),
                 );
               })()}
-              <button className="page-btn" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>›</button>
+              <button
+                className="page-btn"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                ›
+              </button>
               <span className="page-info">{filtered.length} itens</span>
             </div>
           )}

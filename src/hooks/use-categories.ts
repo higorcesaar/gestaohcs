@@ -33,7 +33,8 @@ export function useCategories(kind?: string) {
       if (!seededOnce) {
         seededOnce = true;
         const { count } = await supabase
-          .from("categories").select("id", { count: "exact", head: true });
+          .from("categories")
+          .select("id", { count: "exact", head: true });
         if ((count ?? 0) === 0) {
           const rows = Object.entries(SEED_CATEGORIES).flatMap(([k, names]) =>
             names.map((name) => ({ user_id: user.id, kind: k, name })),
@@ -53,12 +54,17 @@ export async function ensureCategory(userId: string, kind: string, name: string)
   const trimmed = name.trim();
   if (!trimmed) return trimmed;
   const { data: existing } = await supabase
-    .from("categories").select("name")
-    .eq("user_id", userId).eq("kind", kind).ilike("name", trimmed)
+    .from("categories")
+    .select("name")
+    .eq("user_id", userId)
+    .eq("kind", kind)
+    .ilike("name", trimmed)
     .maybeSingle();
   if (existing?.name) return existing.name;
   const { data } = await supabase
-    .from("categories").insert({ user_id: userId, kind, name: trimmed })
-    .select("name").single();
+    .from("categories")
+    .insert({ user_id: userId, kind, name: trimmed })
+    .select("name")
+    .single();
   return data?.name ?? trimmed;
 }

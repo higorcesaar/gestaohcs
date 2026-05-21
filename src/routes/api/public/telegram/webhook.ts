@@ -19,23 +19,35 @@ function getAdmin() {
     _admin = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } }
+      { auth: { persistSession: false, autoRefreshToken: false } },
     );
   }
   return _admin;
 }
 
-async function forwardToOwner(token: string, ownerChatId: string, payload: {
-  from?: string; username?: string; chatId: number; text: string | null; type: string;
-}) {
+async function forwardToOwner(
+  token: string,
+  ownerChatId: string,
+  payload: {
+    from?: string;
+    username?: string;
+    chatId: number;
+    text: string | null;
+    type: string;
+  },
+) {
   const lines = [
     "📩 <b>Nova mensagem para o bot</b>",
-    payload.from ? `👤 <b>De:</b> ${escapeHtml(payload.from)}${payload.username ? ` (@${escapeHtml(payload.username)})` : ""}` : null,
+    payload.from
+      ? `👤 <b>De:</b> ${escapeHtml(payload.from)}${payload.username ? ` (@${escapeHtml(payload.username)})` : ""}`
+      : null,
     `💬 <b>Chat ID:</b> <code>${payload.chatId}</code>`,
     `📝 <b>Tipo:</b> ${escapeHtml(payload.type)}`,
     "",
     payload.text ? escapeHtml(payload.text) : "<i>(sem texto)</i>",
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -50,7 +62,10 @@ async function forwardToOwner(token: string, ownerChatId: string, payload: {
 }
 
 function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 }
 
 export const Route = createFileRoute("/api/public/telegram/webhook")({
@@ -69,16 +84,19 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           return new Response("Unauthorized", { status: 401 });
         }
 
-        const update = await request.json() as Record<string, unknown>;
+        const update = (await request.json()) as Record<string, unknown>;
         const message = (update.message ?? update.edited_message ?? update.channel_post) as
-          | Record<string, unknown> | undefined;
+          | Record<string, unknown>
+          | undefined;
 
         if (!message || typeof update.update_id !== "number") {
           return Response.json({ ok: true, ignored: true });
         }
 
         const chat = message.chat as { id: number } | undefined;
-        const from = message.from as { id?: number; username?: string; first_name?: string; last_name?: string } | undefined;
+        const from = message.from as
+          | { id?: number; username?: string; first_name?: string; last_name?: string }
+          | undefined;
         const text = (message.text ?? message.caption ?? null) as string | null;
         const type = inferType(message);
 
@@ -87,15 +105,18 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         const admin = getAdmin();
         const fromName = [from?.first_name, from?.last_name].filter(Boolean).join(" ") || null;
 
-        await admin.from("telegram_messages").upsert({
-          update_id: update.update_id,
-          chat_id: chat.id,
-          from_user_id: from?.id ?? null,
-          from_username: from?.username ?? null,
-          from_name: fromName,
-          text,
-          raw_update: update as never,
-        }, { onConflict: "update_id" });
+        await admin.from("telegram_messages").upsert(
+          {
+            update_id: update.update_id,
+            chat_id: chat.id,
+            from_user_id: from?.id ?? null,
+            from_username: from?.username ?? null,
+            from_name: fromName,
+            text,
+            raw_update: update as never,
+          },
+          { onConflict: "update_id" },
+        );
 
         let txStatus: { ok: boolean; message: string } | null = null;
         if (text) txStatus = await tryCreateTransaction(admin, text);
@@ -109,7 +130,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         });
 
         if (ok) {
-          await admin.from("telegram_messages").update({ forwarded: true }).eq("update_id", update.update_id);
+          await admin
+            .from("telegram_messages")
+            .update({ forwarded: true })
+            .eq("update_id", update.update_id);
         }
 
         if (txStatus) {
@@ -118,7 +142,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: chat.id,
-              text: txStatus.ok ? `✅ Lançamento registrado: ${txStatus.message}` : `⚠️ ${txStatus.message}`,
+              text: txStatus.ok
+                ? `✅ Lançamento registrado: ${txStatus.message}`
+                : `⚠️ ${txStatus.message}`,
             }),
           }).catch(() => {});
         }
@@ -142,17 +168,21 @@ function inferType(m: Record<string, unknown>): string {
 
 const KIND_MAP: Record<string, string> = {
   "gasto fixo": "fixo",
-  "fixo": "fixo",
+  fixo: "fixo",
   "gasto variavel": "variavel",
-  "variavel": "variavel",
-  "parcelamento": "parcelamento",
-  "parcela": "parcelamento",
-  "receita": "receita",
-  "salario": "receita",
+  variavel: "variavel",
+  parcelamento: "parcelamento",
+  parcela: "parcelamento",
+  receita: "receita",
+  salario: "receita",
 };
 
 function normalize(s: string) {
-  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 function parseFields(text: string): Record<string, string> {
@@ -166,13 +196,16 @@ function parseFields(text: string): Record<string, string> {
 }
 
 function parseAmount(s: string): number | null {
-  const cleaned = s.replace(/[^\d,.\-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+  const cleaned = s
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".");
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
 function parseDate(s: string): string | null {
-  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (m) {
     const d = m[1].padStart(2, "0");
     const mo = m[2].padStart(2, "0");
@@ -184,7 +217,9 @@ function parseDate(s: string): string | null {
   return null;
 }
 
-function monthStart(iso: string): string { return iso.slice(0, 7) + "-01"; }
+function monthStart(iso: string): string {
+  return iso.slice(0, 7) + "-01";
+}
 function addMonth(iso: string): string {
   const [y, m] = iso.split("-").map(Number);
   const nm = m === 12 ? 1 : m + 1;
@@ -192,8 +227,13 @@ function addMonth(iso: string): string {
   return `${ny}-${String(nm).padStart(2, "0")}-01`;
 }
 function computeCompetenceMonth(
-  occurredOn: string, paymentMethod: string | null,
-  card: { due_day?: number | null; dias_antecedencia_fechamento?: number | null; closing_day?: number | null } | null,
+  occurredOn: string,
+  paymentMethod: string | null,
+  card: {
+    due_day?: number | null;
+    dias_antecedencia_fechamento?: number | null;
+    closing_day?: number | null;
+  } | null,
   closedMonths: string[] = [],
 ): string {
   let base: string;
@@ -203,14 +243,20 @@ function computeCompetenceMonth(
     const purchase = new Date(y, m - 1, d);
     const dueDay = Number(card!.due_day ?? 0);
     const dias = Number(card!.dias_antecedencia_fechamento ?? 7);
-    let year = y, month = m;
+    let year = y,
+      month = m;
     for (let i = 0; i < 4; i++) {
-      let cYear = year, cMonth = month, cDay: number;
+      let cYear = year,
+        cMonth = month,
+        cDay: number;
       if (dueDay > 0) {
         cDay = dueDay - dias;
         if (cDay <= 0) {
           cMonth -= 1;
-          if (cMonth < 1) { cMonth = 12; cYear -= 1; }
+          if (cMonth < 1) {
+            cMonth = 12;
+            cYear -= 1;
+          }
           const daysPrev = new Date(cYear, cMonth, 0).getDate();
           cDay = daysPrev + cDay;
         }
@@ -222,7 +268,10 @@ function computeCompetenceMonth(
       cutoff.setDate(cutoff.getDate() - 1);
       if (purchase < cutoff) break;
       month += 1;
-      if (month > 12) { month = 1; year += 1; }
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
     }
     base = `${year}-${String(month).padStart(2, "0")}-01`;
   } else {
@@ -245,16 +294,24 @@ function normalizePayment(s: string | undefined): string | null {
 
 async function ensureCategoryAdmin(
   admin: ReturnType<typeof createClient<Database>>,
-  userId: string, kind: string, name: string,
+  userId: string,
+  kind: string,
+  name: string,
 ): Promise<string> {
   const trimmed = name.trim();
   const { data: existing } = await admin
-    .from("categories").select("name")
-    .eq("user_id", userId).eq("kind", kind).ilike("name", trimmed).maybeSingle();
+    .from("categories")
+    .select("name")
+    .eq("user_id", userId)
+    .eq("kind", kind)
+    .ilike("name", trimmed)
+    .maybeSingle();
   if (existing?.name) return existing.name;
   const { data } = await admin
-    .from("categories").insert({ user_id: userId, kind, name: trimmed })
-    .select("name").single();
+    .from("categories")
+    .insert({ user_id: userId, kind, name: trimmed })
+    .select("name")
+    .single();
   return data?.name ?? trimmed;
 }
 
@@ -275,11 +332,17 @@ async function tryCreateTransaction(
   const amount = fields["valor"] ? parseAmount(fields["valor"]) : null;
   if (amount === null) return { ok: false, message: "Campo 'Valor' inválido." };
 
-  const occurred_on = fields["data"] ? parseDate(fields["data"]) : new Date().toISOString().slice(0, 10);
+  const occurred_on = fields["data"]
+    ? parseDate(fields["data"])
+    : new Date().toISOString().slice(0, 10);
   if (!occurred_on) return { ok: false, message: `Data inválida: "${fields["data"]}".` };
 
   const { data: roleRow } = await admin
-    .from("user_roles").select("user_id").eq("role", "admin").limit(1).maybeSingle();
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "admin")
+    .limit(1)
+    .maybeSingle();
   if (!roleRow?.user_id) return { ok: false, message: "Administrador não encontrado." };
   const userId = roleRow.user_id as string;
 
@@ -288,7 +351,11 @@ async function tryCreateTransaction(
   const titular = fields["titular"] || null;
   let bank = fields["banco"] || null;
   let cardId: string | null = null;
-  let cardForCompetence: { due_day?: number | null; dias_antecedencia_fechamento?: number | null; closing_day?: number | null } | null = null;
+  let cardForCompetence: {
+    due_day?: number | null;
+    dias_antecedencia_fechamento?: number | null;
+    closing_day?: number | null;
+  } | null = null;
 
   // Match cartão por nome OU banco
   if (paymentMethod === "Crédito" || paymentMethod === "Débito") {
@@ -304,7 +371,9 @@ async function tryCreateTransaction(
       if (paymentMethod === "Crédito") {
         cardForCompetence = {
           due_day: match.due_day,
-          dias_antecedencia_fechamento: (match as { dias_antecedencia_fechamento?: number | null }).dias_antecedencia_fechamento ?? 7,
+          dias_antecedencia_fechamento:
+            (match as { dias_antecedencia_fechamento?: number | null })
+              .dias_antecedencia_fechamento ?? 7,
           closing_day: match.closing_day,
         };
       }
@@ -312,17 +381,35 @@ async function tryCreateTransaction(
   }
 
   const { data: closedRows } = await admin
-    .from("closed_months").select("competence_month").eq("user_id", userId);
+    .from("closed_months")
+    .select("competence_month")
+    .eq("user_id", userId);
   const closedMonths = (closedRows ?? []).map((r) => r.competence_month as string);
 
-  const competence_month = computeCompetenceMonth(occurred_on, paymentMethod, cardForCompetence, closedMonths);
+  const competence_month = computeCompetenceMonth(
+    occurred_on,
+    paymentMethod,
+    cardForCompetence,
+    closedMonths,
+  );
 
   const { error } = await admin.from("transactions").insert({
-    user_id: userId, kind, category, amount, occurred_on, competence_month,
-    titular, payment_method: paymentMethod, bank, card_id: cardId,
+    user_id: userId,
+    kind,
+    category,
+    amount,
+    occurred_on,
+    competence_month,
+    titular,
+    payment_method: paymentMethod,
+    bank,
+    card_id: cardId,
     description: fields["descricao"] || null,
   });
 
   if (error) return { ok: false, message: `Erro ao salvar: ${error.message}` };
-  return { ok: true, message: `${category} • R$ ${amount.toFixed(2).replace(".", ",")} • comp. ${competence_month.slice(0, 7)}` };
+  return {
+    ok: true,
+    message: `${category} • R$ ${amount.toFixed(2).replace(".", ",")} • comp. ${competence_month.slice(0, 7)}`,
+  };
 }

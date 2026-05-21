@@ -1,15 +1,32 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
-  LogOut, LayoutDashboard, Receipt, Users, Wallet, Target,
-  BarChart3, FileBarChart, Tags, CreditCard, Menu,
-  PiggyBank, CalendarRange, Settings, Database, Landmark,
+  LogOut,
+  LayoutDashboard,
+  Receipt,
+  Users,
+  Wallet,
+  Target,
+  BarChart3,
+  FileBarChart,
+  Tags,
+  CreditCard,
+  Menu,
+  PiggyBank,
+  CalendarRange,
+  Settings,
+  Database,
+  Landmark,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useTitular } from "@/hooks/use-titular";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { TITULARES } from "@/lib/finance-constants";
@@ -36,9 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         { to: "/metas", label: "Metas", icon: Target },
         { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
         { to: "/relatorios-consolidados", label: "Consolidados", icon: FileBarChart },
-        ...(role === "admin"
-          ? [{ to: "/usuarios", label: "Usuários", icon: Users }]
-          : []),
+        ...(role === "admin" ? [{ to: "/usuarios", label: "Usuários", icon: Users }] : []),
       ],
     },
     {
@@ -65,7 +80,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="min-w-0">
           <div className="font-semibold text-sidebar-foreground leading-tight">Cesar Finanças</div>
-          <div className="text-[11px] text-muted-foreground leading-tight">Controle Financeiro Profissional</div>
+          <div className="text-[11px] text-muted-foreground leading-tight">
+            Controle Financeiro Profissional
+          </div>
         </div>
       </div>
       <nav className="flex-1 px-3 space-y-4 overflow-y-auto pb-3">
@@ -117,7 +134,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 border-r border-sidebar-border bg-sidebar flex-col" style={{ backgroundColor: 'var(--color-sidebar)' }}>
+      <aside
+        className="hidden lg:flex w-64 border-r border-sidebar-border bg-sidebar flex-col"
+        style={{ backgroundColor: "var(--color-sidebar)" }}
+      >
         {SidebarContent}
       </aside>
 
@@ -146,20 +166,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-muted-foreground hidden sm:inline">Titular:</span>
-              <Select value={titular} onValueChange={(v) => setTitular(v as "all" | "Higor" | "Mirelly")}>
-                <SelectTrigger className="w-[130px] sm:w-[160px] h-9"><SelectValue /></SelectTrigger>
+              <Select
+                value={titular}
+                onValueChange={(v) => setTitular(v as "all" | "Higor" | "Mirelly")}
+              >
+                <SelectTrigger className="w-[130px] sm:w-[160px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  {TITULARES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {TITULARES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          {children}
-        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">{children}</div>
       </main>
 
       <InstallPwaButton />

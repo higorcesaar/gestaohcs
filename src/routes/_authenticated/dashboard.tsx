@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  formatBRL, formatDateBR, KINDS,
-} from "@/lib/finance-constants";
+import { formatBRL, formatDateBR, KINDS } from "@/lib/finance-constants";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -11,28 +9,56 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 interface Tx {
-  id: string; occurred_on: string; competence_month: string;
-  kind: string; category: string; amount: number;
-  description: string | null; bank: string | null;
-  payment_method: string | null; titular: string | null;
-  installment_no: number | null; installments_total: number | null;
-  card_id: string | null; status: string;
+  id: string;
+  occurred_on: string;
+  competence_month: string;
+  kind: string;
+  category: string;
+  amount: number;
+  description: string | null;
+  bank: string | null;
+  payment_method: string | null;
+  titular: string | null;
+  installment_no: number | null;
+  installments_total: number | null;
+  card_id: string | null;
+  status: string;
 }
 
 interface CardRow {
-  id: string; name: string; bank: string; titular: string | null;
-  closing_day: number; due_day: number; credit_limit?: number;
+  id: string;
+  name: string;
+  bank: string;
+  titular: string | null;
+  closing_day: number;
+  due_day: number;
+  credit_limit?: number;
 }
 
 const MESES_PT = [
-  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 const BANK_COLORS: Record<string, string> = {
-  NUBANK: "#820AD1", INTER: "#FF7A00", XP: "#000000",
-  NEON: "#00C857", BRADESCO: "#CC0000", CAIXA: "#005CA9",
-  "MERCADO PAGO": "#00B5E2", SANTANDER: "#FF0000",
+  NUBANK: "#820AD1",
+  INTER: "#FF7A00",
+  XP: "#000000",
+  NEON: "#00C857",
+  BRADESCO: "#CC0000",
+  CAIXA: "#005CA9",
+  "MERCADO PAGO": "#00B5E2",
+  SANTANDER: "#FF0000",
   "BANCO DO BRASIL": "#FABE00",
 };
 
@@ -55,24 +81,43 @@ function Dashboard() {
 
   useEffect(() => {
     setLoading(true);
-    const loadTx = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
-      .gte("competence_month", start).lt("competence_month", end)
+    const loadTx = supabase
+      .from("transactions")
+      .select(
+        "id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status",
+      )
+      .gte("competence_month", start)
+      .lt("competence_month", end)
       .order("occurred_on", { ascending: false });
     applyTitular(loadTx, titular).then(({ data }) => setTx((data ?? []) as Tx[]));
 
-    const loadPrev = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
-      .gte("competence_month", prevStart).lt("competence_month", start);
+    const loadPrev = supabase
+      .from("transactions")
+      .select(
+        "id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status",
+      )
+      .gte("competence_month", prevStart)
+      .lt("competence_month", start);
     applyTitular(loadPrev, titular).then(({ data }) => setPrevTx((data ?? []) as Tx[]));
 
-    const loadNext = supabase.from("transactions")
-      .select("id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status")
-      .gte("competence_month", end).lt("competence_month", endNext);
+    const loadNext = supabase
+      .from("transactions")
+      .select(
+        "id, occurred_on, competence_month, kind, category, amount, description, bank, payment_method, titular, installment_no, installments_total, card_id, status",
+      )
+      .gte("competence_month", end)
+      .lt("competence_month", endNext);
     applyTitular(loadNext, titular).then(({ data }) => setNextTx((data ?? []) as Tx[]));
 
-    supabase.from("cards").select("*").order("name")
-      .then(({ data, error }) => { if (!error) setCards((data ?? []) as CardRow[]); setLoading(false); });
+    supabase
+      .from("cards")
+      .select("*")
+      .order("name")
+      .then(({ data, error }) => {
+        if (!error) setCards((data ?? []) as CardRow[]);
+        setLoading(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month, titular]);
 
   const visibleCards = useMemo(
@@ -88,22 +133,31 @@ function Dashboard() {
   const variaveis = sum(tx, "variavel");
   const parcelas = sum(tx, "parcelamento");
   const totalDespesas = fixos + variaveis + parcelas;
-  const totalPago = tx.filter((t) => t.kind !== "receita" && t.status === "pago")
+  const totalPago = tx
+    .filter((t) => t.kind !== "receita" && t.status === "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const totalPendente = tx.filter((t) => t.kind !== "receita" && t.status !== "pago")
+  const totalPendente = tx
+    .filter((t) => t.kind !== "receita" && t.status !== "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
   const saldoConta = receitas - totalPago;
   const resultadoPrevisto = receitas - totalDespesas;
   const qtdPendentes = tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length;
 
   const prevReceitas = sum(prevTx, "receita");
-  const prevDespesas = prevTx.filter((t) => t.kind !== "receita")
+  const prevDespesas = prevTx
+    .filter((t) => t.kind !== "receita")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const diffSaldoPct = (prevReceitas - prevDespesas) !== 0
-    ? ((saldoConta - (prevReceitas - prevDespesas)) / Math.abs(prevReceitas - prevDespesas) * 100).toFixed(0)
-    : "0";
-  const diffReceitasPct = prevReceitas > 0 ? ((receitas - prevReceitas) / prevReceitas * 100).toFixed(0) : "0";
-  const diffDespesasPct = prevDespesas > 0 ? ((totalDespesas - prevDespesas) / prevDespesas * 100).toFixed(0) : "0";
+  const diffSaldoPct =
+    prevReceitas - prevDespesas !== 0
+      ? (
+          ((saldoConta - (prevReceitas - prevDespesas)) / Math.abs(prevReceitas - prevDespesas)) *
+          100
+        ).toFixed(0)
+      : "0";
+  const diffReceitasPct =
+    prevReceitas > 0 ? (((receitas - prevReceitas) / prevReceitas) * 100).toFixed(0) : "0";
+  const diffDespesasPct =
+    prevDespesas > 0 ? (((totalDespesas - prevDespesas) / prevDespesas) * 100).toFixed(0) : "0";
 
   const cardTotals = useMemo(() => {
     return visibleCards.map((c) => {
@@ -127,7 +181,8 @@ function Dashboard() {
   }, [tx]);
 
   const catTotal = catExpenses.reduce((s, c) => s + c.value, 0);
-  const nextOutflow = nextTx.filter((t) => t.kind !== "receita")
+  const nextOutflow = nextTx
+    .filter((t) => t.kind !== "receita")
     .reduce((s, t) => s + Number(t.amount), 0);
   const cardTotalSum = cardTotals.reduce((s, ct) => s + ct.total, 0);
 
@@ -269,15 +324,31 @@ function Dashboard() {
         <header className="header">
           <div className="page-title">
             <h2>Dashboard</h2>
-            <p>{monthLabel} de {year}</p>
+            <p>
+              {monthLabel} de {year}
+            </p>
           </div>
           <div className="header-actions">
-            <select className="select-filter" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-              {MESES_PT.map((m, i) => <option key={m} value={i}>{m}</option>)}
+            <select
+              className="select-filter"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+            >
+              {MESES_PT.map((m, i) => (
+                <option key={m} value={i}>
+                  {m}
+                </option>
+              ))}
             </select>
-            <select className="select-filter" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            <select
+              className="select-filter"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+            >
               {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map((y) => (
-                <option key={y} value={y}>{y}</option>
+                <option key={y} value={y}>
+                  {y}
+                </option>
               ))}
             </select>
           </div>
@@ -292,18 +363,25 @@ function Dashboard() {
                 <span>Saldo atual 👁️</span>
                 <div className="saldo-value">{formatBRL(saldoConta)}</div>
                 <div>
-                  <span className="badge-green">{Number(diffSaldoPct) >= 0 ? "↑" : "↓"} {Math.abs(Number(diffSaldoPct))}%</span>
+                  <span className="badge-green">
+                    {Number(diffSaldoPct) >= 0 ? "↑" : "↓"} {Math.abs(Number(diffSaldoPct))}%
+                  </span>
                   <span style={{ fontSize: 12, marginLeft: 8 }}>em relação ao mês anterior</span>
                 </div>
               </div>
-              <div className="highlight-col" style={{ borderLeft: "1px solid var(--border)", paddingLeft: 32 }}>
+              <div
+                className="highlight-col"
+                style={{ borderLeft: "1px solid var(--border)", paddingLeft: 32 }}
+              >
                 <span>Visão geral do mês de {monthLabel}</span>
                 <p style={{ fontSize: 13 }}>
-                  Receitas <strong className="text-success">{formatBRL(receitas)}</strong> — Despesas <strong className="text-danger">{formatBRL(totalDespesas)}</strong>
+                  Receitas <strong className="text-success">{formatBRL(receitas)}</strong> —
+                  Despesas <strong className="text-danger">{formatBRL(totalDespesas)}</strong>
                 </p>
                 <span style={{ marginTop: 12 }}>Resultado previsto</span>
                 <p style={{ fontSize: 20, fontWeight: 700 }} className="text-danger">
-                  {resultadoPrevisto >= 0 ? "" : "-"}{formatBRL(Math.abs(resultadoPrevisto))}
+                  {resultadoPrevisto >= 0 ? "" : "-"}
+                  {formatBRL(Math.abs(resultadoPrevisto))}
                 </p>
               </div>
               <button className="btn-outline">Ver detalhes completos ❯</button>
@@ -312,22 +390,30 @@ function Dashboard() {
             <section className="metrics-grid">
               <div className="metric-card">
                 <div className="metric-header">
-                  <div className="icon-box" style={{ background: "#1B4332" }}>↗</div>
+                  <div className="icon-box" style={{ background: "#1B4332" }}>
+                    ↗
+                  </div>
                   <div className="metric-info">
                     <h4>Receitas</h4>
                     <h3>{formatBRL(receitas)}</h3>
-                    <p className="trend text-success">↑ {Math.abs(Number(diffReceitasPct))}% vs mês ant.</p>
+                    <p className="trend text-success">
+                      ↑ {Math.abs(Number(diffReceitasPct))}% vs mês ant.
+                    </p>
                   </div>
                 </div>
                 <div className="fake-chart-line"></div>
               </div>
               <div className="metric-card">
                 <div className="metric-header">
-                  <div className="icon-box" style={{ background: "#2D6A4F" }}>💳</div>
+                  <div className="icon-box" style={{ background: "#2D6A4F" }}>
+                    💳
+                  </div>
                   <div className="metric-info">
                     <h4>Despesas Fixas</h4>
                     <h3>{formatBRL(fixos)}</h3>
-                    <p className="trend text-danger">↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.</p>
+                    <p className="trend text-danger">
+                      ↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.
+                    </p>
                   </div>
                 </div>
                 <div className="fake-chart-bars">
@@ -338,43 +424,69 @@ function Dashboard() {
               </div>
               <div className="metric-card">
                 <div className="metric-header">
-                  <div className="icon-box" style={{ background: "#40916C" }}>🛒</div>
+                  <div className="icon-box" style={{ background: "#40916C" }}>
+                    🛒
+                  </div>
                   <div className="metric-info">
                     <h4>Despesas Variáveis</h4>
                     <h3>{formatBRL(variaveis)}</h3>
-                    <p className="trend text-danger">↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.</p>
+                    <p className="trend text-danger">
+                      ↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.
+                    </p>
                   </div>
                 </div>
                 <div className="fake-chart-donut"></div>
               </div>
               <div className="metric-card">
                 <div className="metric-header">
-                  <div className="icon-box" style={{ background: "#52B788" }}>📄</div>
+                  <div className="icon-box" style={{ background: "#52B788" }}>
+                    📄
+                  </div>
                   <div className="metric-info">
                     <h4>Parcelamentos</h4>
                     <h3>{formatBRL(parcelas)}</h3>
-                    <p className="trend text-danger">↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.</p>
+                    <p className="trend text-danger">
+                      ↑ {Math.abs(Number(diffDespesasPct))}% vs mês ant.
+                    </p>
                   </div>
                 </div>
                 <ul className="card-footer-list">
-                  <li><span>Este mês</span> <strong>{formatBRL(parcelas)}</strong></li>
+                  <li>
+                    <span>Este mês</span> <strong>{formatBRL(parcelas)}</strong>
+                  </li>
                   {(() => {
-                    const nextParc = nextTx.filter((t) => t.kind === "parcelamento")
+                    const nextParc = nextTx
+                      .filter((t) => t.kind === "parcelamento")
                       .reduce((s, t) => s + Number(t.amount), 0);
-                    return <li><span>Próximos 30 dias</span> <strong>{formatBRL(nextParc)}</strong></li>;
+                    return (
+                      <li>
+                        <span>Próximos 30 dias</span> <strong>{formatBRL(nextParc)}</strong>
+                      </li>
+                    );
                   })()}
                 </ul>
               </div>
               <div className="metric-card">
                 <div className="metric-header">
-                  <div className="icon-box" style={{ background: "#1B4332" }}>📅</div>
+                  <div className="icon-box" style={{ background: "#1B4332" }}>
+                    📅
+                  </div>
                   <div className="metric-info">
                     <h4>A pagar (total)</h4>
                     <h3>{formatBRL(totalPendente)}</h3>
-                    <p style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>{qtdPendentes} contas</p>
+                    <p style={{ fontSize: 12, marginTop: 4, color: "var(--text-muted)" }}>
+                      {qtdPendentes} contas
+                    </p>
                   </div>
                 </div>
-                {qtdPendentes > 0 && <p className="text-danger" style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}>Pendentes de pagamento</p>}
+                {qtdPendentes > 0 && (
+                  <p
+                    className="text-danger"
+                    style={{ fontSize: 12, fontWeight: 600, marginTop: 16 }}
+                  >
+                    Pendentes de pagamento
+                  </p>
+                )}
               </div>
             </section>
 
@@ -382,7 +494,9 @@ function Dashboard() {
               <div className="panel">
                 <div className="panel-title">Fluxo financeiro do mês</div>
                 <div className="fluxo-container">
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}
+                  >
                     <div className="fluxo-box" style={{ borderColor: "var(--primary)" }}>
                       <h5>Receitas</h5>
                       <p className="text-success">{formatBRL(receitas)}</p>
@@ -390,7 +504,8 @@ function Dashboard() {
                     <div style={{ marginTop: 40 }}>
                       <h5 style={{ fontSize: 11, color: "var(--text-muted)" }}>Déficit do mês</h5>
                       <p className="text-danger" style={{ fontSize: 18, fontWeight: 700 }}>
-                        {resultadoPrevisto >= 0 ? "" : "-"}{formatBRL(Math.abs(resultadoPrevisto))}
+                        {resultadoPrevisto >= 0 ? "" : "-"}
+                        {formatBRL(Math.abs(resultadoPrevisto))}
                       </p>
                     </div>
                   </div>
@@ -405,13 +520,19 @@ function Dashboard() {
                       { name: "Despesas Fixas", value: fixos },
                       { name: "Despesas Variáveis", value: variaveis },
                       { name: "Parcelamentos", value: parcelas },
-                      { name: "Outros", value: Math.max(0, totalDespesas - fixos - variaveis - parcelas) },
+                      {
+                        name: "Outros",
+                        value: Math.max(0, totalDespesas - fixos - variaveis - parcelas),
+                      },
                     ].map((d) => {
-                      const pct = totalDespesas > 0 ? ((d.value / totalDespesas) * 100).toFixed(0) : "0";
+                      const pct =
+                        totalDespesas > 0 ? ((d.value / totalDespesas) * 100).toFixed(0) : "0";
                       return (
                         <div className="fluxo-item" key={d.name}>
                           <div>
-                            <strong className="text-success">{d.name}</strong><br />{formatBRL(d.value)}
+                            <strong className="text-success">{d.name}</strong>
+                            <br />
+                            {formatBRL(d.value)}
                           </div>
                           <span className="perc">{pct}%</span>
                         </div>
@@ -425,22 +546,38 @@ function Dashboard() {
                 <div className="panel-title">🔔 Alertas e avisos</div>
                 <div className="alerts-list">
                   {cardTotals.filter((ct) => ct.total > 0).length > 0 ? (
-                    cardTotals.filter((ct) => ct.total > 0).slice(0, 2).map((ct) => {
-                      const pendentes = ct.items.filter((i) => i.status !== "pago").length;
-                      return (
-                        <div className="alert-item" key={ct.card.id}>
-                          <div className="alert-icon" style={{ background: "#FFF3E0", color: "#E65100" }}>💳</div>
-                          <div className="alert-info">
-                            <h4>{ct.card.name}</h4>
-                            <p>{pendentes > 0 ? `${pendentes} pendente(s)` : "Fatura aberta"} • {formatBRL(ct.total)}</p>
+                    cardTotals
+                      .filter((ct) => ct.total > 0)
+                      .slice(0, 2)
+                      .map((ct) => {
+                        const pendentes = ct.items.filter((i) => i.status !== "pago").length;
+                        return (
+                          <div className="alert-item" key={ct.card.id}>
+                            <div
+                              className="alert-icon"
+                              style={{ background: "#FFF3E0", color: "#E65100" }}
+                            >
+                              💳
+                            </div>
+                            <div className="alert-info">
+                              <h4>{ct.card.name}</h4>
+                              <p>
+                                {pendentes > 0 ? `${pendentes} pendente(s)` : "Fatura aberta"} •{" "}
+                                {formatBRL(ct.total)}
+                              </p>
+                            </div>
+                            <div className="alert-chevron">❯</div>
                           </div>
-                          <div className="alert-chevron">❯</div>
-                        </div>
-                      );
-                    })
+                        );
+                      })
                   ) : (
                     <div className="alert-item">
-                      <div className="alert-icon" style={{ background: "var(--success-bg)", color: "var(--primary)" }}>✅</div>
+                      <div
+                        className="alert-icon"
+                        style={{ background: "var(--success-bg)", color: "var(--primary)" }}
+                      >
+                        ✅
+                      </div>
                       <div className="alert-info">
                         <h4>Nenhum alerta</h4>
                         <p>Todas as contas em dia</p>
@@ -449,7 +586,12 @@ function Dashboard() {
                   )}
                   {qtdPendentes > 0 && (
                     <div className="alert-item">
-                      <div className="alert-icon" style={{ background: "#FFEBEE", color: "#C62828" }}>⚠️</div>
+                      <div
+                        className="alert-icon"
+                        style={{ background: "#FFEBEE", color: "#C62828" }}
+                      >
+                        ⚠️
+                      </div>
                       <div className="alert-info">
                         <h4>{qtdPendentes} pendência(s)</h4>
                         <p>Total de {formatBRL(totalPendente)} a pagar</p>
@@ -459,7 +601,12 @@ function Dashboard() {
                   )}
                   {nextOutflow > 0 && (
                     <div className="alert-item">
-                      <div className="alert-icon" style={{ background: "#FFF8E1", color: "#F57F17" }}>📈</div>
+                      <div
+                        className="alert-icon"
+                        style={{ background: "#FFF8E1", color: "#F57F17" }}
+                      >
+                        📈
+                      </div>
                       <div className="alert-info">
                         <h4>Próximo mês</h4>
                         <p>{formatBRL(nextOutflow)} em despesas projetadas</p>
@@ -468,7 +615,9 @@ function Dashboard() {
                     </div>
                   )}
                 </div>
-                <div className="link-all"><a href="#">Ver todos os alertas</a></div>
+                <div className="link-all">
+                  <a href="#">Ver todos os alertas</a>
+                </div>
               </div>
             </section>
 
@@ -476,7 +625,9 @@ function Dashboard() {
               <div className="panel">
                 <div className="panel-title">
                   Lançamentos recentes
-                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>Ver todos</button>
+                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>
+                    Ver todos
+                  </button>
                 </div>
                 {recent.length === 0 ? (
                   <div className="empty-text">Nenhum lançamento neste mês.</div>
@@ -490,10 +641,17 @@ function Dashboard() {
                         return (
                           <tr key={t.id}>
                             <td style={{ width: 30, textAlign: "center" }}>{icon}</td>
-                            <td>{formatDateBR(t.occurred_on)}<br /><strong>{t.description || t.category}</strong></td>
-                            <td style={{ color: "var(--text-muted)" }}>{kindInfo?.label ?? t.kind}</td>
+                            <td>
+                              {formatDateBR(t.occurred_on)}
+                              <br />
+                              <strong>{t.description || t.category}</strong>
+                            </td>
+                            <td style={{ color: "var(--text-muted)" }}>
+                              {kindInfo?.label ?? t.kind}
+                            </td>
                             <td className={isReceita ? "text-success" : "text-danger"}>
-                              {isReceita ? "+ " : "- "}{formatBRL(Number(t.amount))}
+                              {isReceita ? "+ " : "- "}
+                              {formatBRL(Number(t.amount))}
                             </td>
                           </tr>
                         );
@@ -506,68 +664,110 @@ function Dashboard() {
               <div className="panel">
                 <div className="panel-title">
                   Gastos por categoria
-                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>Ver relatório</button>
+                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>
+                    Ver relatório
+                  </button>
                 </div>
                 {catExpenses.length === 0 ? (
                   <div className="empty-text">Nenhum gasto neste mês.</div>
                 ) : (
                   catExpenses.slice(0, 5).map((c) => {
                     const pct = catTotal > 0 ? ((c.value / catTotal) * 100).toFixed(0) : "0";
-                    const icons: Record<string, string> = { moradia: "🏠", crédito: "💳", transporte: "🚗", alimenta: "🛒", saúde: "⚕️" };
-                    const icon = Object.entries(icons).find(([k]) => c.name.toLowerCase().includes(k))?.[1] ?? "📄";
+                    const icons: Record<string, string> = {
+                      moradia: "🏠",
+                      crédito: "💳",
+                      transporte: "🚗",
+                      alimenta: "🛒",
+                      saúde: "⚕️",
+                    };
+                    const icon =
+                      Object.entries(icons).find(([k]) => c.name.toLowerCase().includes(k))?.[1] ??
+                      "📄";
                     return (
                       <div className="progress-item" key={c.name}>
                         <div className="progress-header">
-                          <span>{icon} {c.name}</span>
-                          <span>{formatBRL(c.value)} ({pct}%)</span>
+                          <span>
+                            {icon} {c.name}
+                          </span>
+                          <span>
+                            {formatBRL(c.value)} ({pct}%)
+                          </span>
                         </div>
-                        <div className="progress-bar-bg"><div className="progress-fill" style={{ width: `${pct}%` }}></div></div>
+                        <div className="progress-bar-bg">
+                          <div className="progress-fill" style={{ width: `${pct}%` }}></div>
+                        </div>
                       </div>
                     );
                   })
                 )}
-                <div className="total-row"><span>Total</span><span>{formatBRL(catTotal)}</span></div>
+                <div className="total-row">
+                  <span>Total</span>
+                  <span>{formatBRL(catTotal)}</span>
+                </div>
               </div>
 
               <div className="panel">
                 <div className="panel-title">
                   Resumo dos cartões
-                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>Ver todos</button>
+                  <button className="btn-outline" style={{ padding: "4px 8px", fontSize: 11 }}>
+                    Ver todos
+                  </button>
                 </div>
                 {cardTotals.length === 0 ? (
                   <div className="empty-text">Nenhum cartão cadastrado.</div>
-                ) : cardTotals.map((ct) => {
-                  const bankKey = ct.card.bank.toUpperCase();
-                  const brandColor = BANK_COLORS[bankKey] || "#666";
-                  const logoClass = bankKey === "NUBANK" ? "nu" : bankKey === "INTER" ? "inter" : "";
-                  const limit = ct.card.credit_limit ?? 0;
-                  const usedPct = limit > 0 ? Math.min(100, (ct.total / limit) * 100).toFixed(0) : "0";
-                  return (
-                    <div className="card-summary-item" key={ct.card.id}>
-                      <div className="card-header">
-                        <div className="card-brand">
-                          <div className={`card-logo ${logoClass}`} style={!logoClass ? { backgroundColor: brandColor } : {}}>
-                            {ct.card.bank.slice(0, 2).toLowerCase()}
+                ) : (
+                  cardTotals.map((ct) => {
+                    const bankKey = ct.card.bank.toUpperCase();
+                    const brandColor = BANK_COLORS[bankKey] || "#666";
+                    const logoClass =
+                      bankKey === "NUBANK" ? "nu" : bankKey === "INTER" ? "inter" : "";
+                    const limit = ct.card.credit_limit ?? 0;
+                    const usedPct =
+                      limit > 0 ? Math.min(100, (ct.total / limit) * 100).toFixed(0) : "0";
+                    return (
+                      <div className="card-summary-item" key={ct.card.id}>
+                        <div className="card-header">
+                          <div className="card-brand">
+                            <div
+                              className={`card-logo ${logoClass}`}
+                              style={!logoClass ? { backgroundColor: brandColor } : {}}
+                            >
+                              {ct.card.bank.slice(0, 2).toLowerCase()}
+                            </div>
+                            {ct.card.name}
                           </div>
-                          {ct.card.name}
+                          <div className="card-value">
+                            {formatBRL(ct.total)}
+                            {limit > 0 && (
+                              <span className="card-limit">Limite: {formatBRL(limit)}</span>
+                            )}
+                            {limit === 0 && (
+                              <span className="card-limit">Sem limite registrado</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="card-value">
-                          {formatBRL(ct.total)}
-                          {limit > 0 && <span className="card-limit">Limite: {formatBRL(limit)}</span>}
-                          {limit === 0 && <span className="card-limit">Sem limite registrado</span>}
-                        </div>
+                        {limit > 0 && (
+                          <div className="card-progress">
+                            <div className="progress-bar-bg">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${usedPct}%`, background: brandColor }}
+                              ></div>
+                            </div>
+                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                              {usedPct}%
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {limit > 0 && (
-                        <div className="card-progress">
-                          <div className="progress-bar-bg"><div className="progress-fill" style={{ width: `${usedPct}%`, background: brandColor }}></div></div>
-                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{usedPct}%</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
                 {cardTotals.length > 0 && (
-                  <div className="total-row" style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 24 }}>
+                  <div
+                    className="total-row"
+                    style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 24 }}
+                  >
                     <span>Total utilizado</span>
                     <span className="text-success">{formatBRL(cardTotalSum)}</span>
                   </div>

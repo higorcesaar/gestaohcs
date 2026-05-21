@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,8 +34,14 @@ function ResetPasswordPage() {
         <h1 className="text-2xl font-semibold">Definir nova senha</h1>
         <div className="space-y-1.5">
           <Label htmlFor="new-pass">Nova senha (mín. 8)</Label>
-          <Input id="new-pass" type="password" minLength={8} required
-            value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            id="new-pass"
+            type="password"
+            minLength={8}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
         <Button type="submit" className="w-full" disabled={submitting}>
           {submitting ? "Salvando…" : "Salvar"}

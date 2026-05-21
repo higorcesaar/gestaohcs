@@ -45,8 +45,8 @@ export function InstallPwaButton() {
           <DialogHeader>
             <DialogTitle>Instalar no iPhone/iPad</DialogTitle>
             <DialogDescription>
-              No Safari, toque em <Share className="inline size-4" /> Compartilhar
-              e selecione <strong>"Adicionar à Tela de Início"</strong>.
+              No Safari, toque em <Share className="inline size-4" /> Compartilhar e selecione{" "}
+              <strong>"Adicionar à Tela de Início"</strong>.
             </DialogDescription>
           </DialogHeader>
           <Button variant="outline" onClick={() => setIosOpen(false)}>
