@@ -302,7 +302,7 @@ function Dashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
 
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -396,7 +396,60 @@ function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-normal text-muted-foreground">A pagar (total)</CardTitle>
+            <CalendarClock className="size-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-amber-600">{formatBRL(totalPendente)}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length} lançamentos pendentes
+            </div>
+            <div className="text-xs text-amber-600 mt-2">Vencem neste mês</div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Alertas e avisos */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarClock className="size-4 text-primary" /> Alertas e avisos
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          {cardTotals.filter((c) => !c.allPaid && c.total > 0).slice(0, 3).map((c) => (
+            <div key={c.card.id} className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+              <CreditCard className="size-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">Cartão {c.card.name}</div>
+                <div className="text-xs text-muted-foreground">Vence dia {c.card.due_day} · {formatBRL(c.total)}</div>
+              </div>
+            </div>
+          ))}
+          {tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <Wallet className="size-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">{tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length} parcelas pendentes</div>
+                <div className="text-xs text-muted-foreground">Acompanhe no Histórico</div>
+              </div>
+            </div>
+          )}
+          {totalPendente === 0 && cardTotals.every((c) => c.allPaid || c.total === 0) && (
+            <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+              <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+              <div>
+                <div className="text-sm font-medium">Tudo em dia</div>
+                <div className="text-xs text-muted-foreground">Nenhum pagamento pendente este mês.</div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-background to-background">
         <CardHeader className="pb-2 flex flex-row items-center justify-between">

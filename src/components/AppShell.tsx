@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LogOut, LayoutDashboard, Receipt, Users, Wallet, Target,
   BarChart3, FileBarChart, Tags, CreditCard, Menu,
+  PiggyBank, CalendarRange, Settings, Database, Landmark,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,9 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { TITULARES } from "@/lib/finance-constants";
 import { InstallPwaButton } from "@/components/InstallPwaButton";
 
+type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type NavGroup = { label?: string; items: NavItem[] };
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
@@ -21,17 +25,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { titular, setTitular } = useTitular();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const nav = [
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/lancamentos", label: "Lançamentos", icon: Receipt },
-    { to: "/categorias", label: "Categorias", icon: Tags },
-    { to: "/cartoes", label: "Cartões", icon: CreditCard },
-    { to: "/metas", label: "Metas", icon: Target },
-    { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
-    { to: "/relatorios-consolidados", label: "Consolidados", icon: FileBarChart },
-    ...(role === "admin"
-      ? [{ to: "/usuarios", label: "Usuários", icon: Users }]
-      : []),
+  const groups: NavGroup[] = [
+    {
+      items: [
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/lancamentos", label: "Lançamentos", icon: Receipt },
+        { to: "/categorias", label: "Categorias", icon: Tags },
+        { to: "/cartoes", label: "Cartões", icon: CreditCard },
+        { to: "/orcamentos", label: "Gestão Orçamentária", icon: PiggyBank },
+        { to: "/metas", label: "Metas", icon: Target },
+        { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
+        { to: "/relatorios-consolidados", label: "Consolidados", icon: FileBarChart },
+        ...(role === "admin"
+          ? [{ to: "/usuarios", label: "Usuários", icon: Users }]
+          : []),
+      ],
+    },
+    {
+      label: "Financeiro",
+      items: [
+        { to: "/contas", label: "Contas", icon: Landmark },
+        { to: "/planejamento", label: "Planejamento", icon: CalendarRange },
+      ],
+    },
+    {
+      label: "Configurações",
+      items: [
+        { to: "/configuracoes", label: "Configurações", icon: Settings },
+        { to: "/backup", label: "Backup e Dados", icon: Database },
+      ],
+    },
   ];
 
   const SidebarContent = (
@@ -45,25 +68,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="text-[11px] text-muted-foreground leading-tight">Controle Financeiro Profissional</div>
         </div>
       </div>
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {nav.map((n) => {
-          const active = path === n.to || path.startsWith(n.to + "/");
-          return (
-            <Link
-              key={n.to}
-              to={n.to}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60"
-              }`}
-            >
-              <n.icon className="size-4" />
-              {n.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 space-y-4 overflow-y-auto pb-3">
+        {groups.map((g, gi) => (
+          <div key={gi} className="space-y-1">
+            {g.label && (
+              <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+                {g.label}
+              </div>
+            )}
+            {g.items.map((n) => {
+              const active = path === n.to || path.startsWith(n.to + "/");
+              return (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60"
+                  }`}
+                >
+                  <n.icon className="size-4" />
+                  {n.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
       <div className="p-4 border-t border-sidebar-border space-y-2">
         <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
@@ -93,7 +125,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
-            {/* Mobile menu button */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden">
