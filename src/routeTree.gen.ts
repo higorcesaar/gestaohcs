@@ -25,6 +25,7 @@ import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
+import { Route as AuthenticatedBackupRouteImport } from './routes/_authenticated/backup'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -110,6 +111,11 @@ const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
   path: '/cartoes',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedBackupRoute = AuthenticatedBackupRouteImport.update({
+  id: '/backup',
+  path: '/backup',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/backup': typeof AuthenticatedBackupRoute
   '/cartoes': typeof AuthenticatedCartoesRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/backup': typeof AuthenticatedBackupRoute
   '/cartoes': typeof AuthenticatedCartoesRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/backup': typeof AuthenticatedBackupRoute
   '/_authenticated/cartoes': typeof AuthenticatedCartoesRoute
   '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/reset-password'
+    | '/backup'
     | '/cartoes'
     | '/categorias'
     | '/configuracoes'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/reset-password'
+    | '/backup'
     | '/cartoes'
     | '/categorias'
     | '/configuracoes'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/reset-password'
+    | '/_authenticated/backup'
     | '/_authenticated/cartoes'
     | '/_authenticated/categorias'
     | '/_authenticated/configuracoes'
@@ -353,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCartoesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/backup': {
+      id: '/_authenticated/backup'
+      path: '/backup'
+      fullPath: '/backup'
+      preLoaderRoute: typeof AuthenticatedBackupRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -364,6 +383,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedBackupRoute: typeof AuthenticatedBackupRoute
   AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
   AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
@@ -379,6 +399,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedBackupRoute: AuthenticatedBackupRoute,
   AuthenticatedCartoesRoute: AuthenticatedCartoesRoute,
   AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
