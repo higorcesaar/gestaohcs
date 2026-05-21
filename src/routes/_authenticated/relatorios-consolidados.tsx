@@ -3,22 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
@@ -27,12 +15,7 @@ export const Route = createFileRoute("/_authenticated/relatorios-consolidados")(
   component: Consolidados,
 });
 
-interface Tx {
-  competence_month: string;
-  occurred_on: string;
-  kind: string;
-  amount: number;
-}
+interface Tx { competence_month: string; occurred_on: string; kind: string; amount: number; }
 
 function Consolidados() {
   const [tx, setTx] = useState<Tx[]>([]);
@@ -44,23 +27,17 @@ function Consolidados() {
     // pega ano corrente + ano anterior (para projetar fixos baseados em meses passados)
     const start = `${year - 1}-01-01`;
     const end = `${year + 1}-01-01`;
-    let q = supabase
-      .from("transactions")
+    let q = supabase.from("transactions")
       .select("competence_month, occurred_on, kind, amount")
-      .gte("competence_month", start)
-      .lt("competence_month", end);
+      .gte("competence_month", start).lt("competence_month", end);
     q = applyTitular(q, titular);
     q.then(({ data }) => setTx((data ?? []) as Tx[]));
   }, [year, titular]);
 
   const data = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => ({
-      mes: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][i],
-      Receitas: 0,
-      Fixos: 0,
-      Variáveis: 0,
-      Parcelamentos: 0,
-      projetado: false,
+      mes: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][i],
+      Receitas: 0, Fixos: 0, Variáveis: 0, Parcelamentos: 0, projetado: false,
     }));
 
     // Real (current year)
@@ -99,15 +76,11 @@ function Consolidados() {
     <div className="space-y-8">
       <header>
         <h1 className="text-3xl font-semibold">Relatórios Consolidados</h1>
-        <p className="text-muted-foreground">
-          Visão anual {year} (com projeção dos meses futuros).
-        </p>
+        <p className="text-muted-foreground">Visão anual {year} (com projeção dos meses futuros).</p>
       </header>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Comparativo mensal</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Comparativo mensal</CardTitle></CardHeader>
         <CardContent className="h-[360px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
@@ -126,9 +99,7 @@ function Consolidados() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tabela anual</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Tabela anual</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -148,17 +119,13 @@ function Consolidados() {
                   <TableRow key={row.mes} className={row.projetado ? "opacity-70" : ""}>
                     <TableCell>
                       {row.mes}
-                      {row.projetado && (
-                        <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>
-                      )}
+                      {row.projetado && <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>}
                     </TableCell>
                     <TableCell className="text-right">{formatBRL(row.Receitas)}</TableCell>
                     <TableCell className="text-right">{formatBRL(row.Fixos)}</TableCell>
                     <TableCell className="text-right">{formatBRL(row.Variáveis)}</TableCell>
                     <TableCell className="text-right">{formatBRL(row.Parcelamentos)}</TableCell>
-                    <TableCell
-                      className={`text-right font-medium ${saldo >= 0 ? "text-success" : "text-destructive"}`}
-                    >
+                    <TableCell className={`text-right font-medium ${saldo >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatBRL(saldo)}
                     </TableCell>
                   </TableRow>

@@ -1,4 +1,3 @@
-import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -39,10 +38,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <h1 className="text-xl font-semibold">Algo deu errado</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <button
-          onClick={() => {
-            router.invalidate();
-            reset();
-          }}
+          onClick={() => { router.invalidate(); reset(); }}
           className="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Tentar novamente
@@ -63,16 +59,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Gestão Financeira" },
       { property: "og:description", content: "Controle financeiro pessoal" },
       { name: "twitter:description", content: "Controle financeiro pessoal" },
-      {
-        property: "og:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/wFr8vxSGvNWnf8tdRsO5pxxxIa93/social-images/social-1779229262320-Gemini_Generated_Image_mn6o7jmn6o7jmn6o.webp",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/wFr8vxSGvNWnf8tdRsO5pxxxIa93/social-images/social-1779229262320-Gemini_Generated_Image_mn6o7jmn6o7jmn6o.webp",
-      },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/wFr8vxSGvNWnf8tdRsO5pxxxIa93/social-images/social-1779229262320-Gemini_Generated_Image_mn6o7jmn6o7jmn6o.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/wFr8vxSGvNWnf8tdRsO5pxxxIa93/social-images/social-1779229262320-Gemini_Generated_Image_mn6o7jmn6o7jmn6o.webp" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
       { name: "theme-color", content: "#6f8a6a" },
@@ -95,9 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <head>
-        <HeadContent />
-      </head>
+      <head><HeadContent /></head>
       <body>
         {children}
         <Scripts />

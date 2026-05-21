@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Navigate } from "@tanstack/react-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,8 +49,8 @@ function LoginPage() {
             Suas finanças, sob a luz certa.
           </h1>
           <p className="text-muted-foreground">
-            Cadastre lançamentos, acompanhe gastos fixos, variáveis e parcelamentos — e receba
-            mensagens do seu bot direto no Telegram.
+            Cadastre lançamentos, acompanhe gastos fixos, variáveis e parcelamentos —
+            e receba mensagens do seu bot direto no Telegram.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -63,28 +63,24 @@ function LoginPage() {
           <form onSubmit={onSubmit} className="space-y-6">
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">Entrar</h2>
-              <p className="text-sm text-muted-foreground">Use seu e-mail autorizado e senha.</p>
+              <p className="text-sm text-muted-foreground">
+                Use seu e-mail autorizado e senha.
+              </p>
             </div>
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="email">E-mail</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="email" type="email" required
+                  value={email} onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Senha</Label>
                 <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="password" type="password" required
+                  value={password} onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                 />
               </div>
@@ -146,24 +142,11 @@ function SignupHint() {
     <form onSubmit={doSignup} className="space-y-3 border-t pt-4">
       <div className="space-y-1.5">
         <Label htmlFor="signup-email">E-mail</Label>
-        <Input
-          id="signup-email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <Input id="signup-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="signup-password">Senha (mín. 8)</Label>
-        <Input
-          id="signup-password"
-          type="password"
-          minLength={8}
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <Input id="signup-password" type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
       <Button type="submit" variant="secondary" className="w-full" disabled={submitting}>
         {submitting ? "Cadastrando…" : "Cadastrar"}
@@ -209,13 +192,7 @@ function ResetPassword() {
     <form onSubmit={doReset} className="space-y-3 border-t pt-4">
       <div className="space-y-1.5">
         <Label htmlFor="reset-email">E-mail</Label>
-        <Input
-          id="reset-email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <Input id="reset-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <Button type="submit" variant="outline" className="w-full" disabled={submitting}>
         {submitting ? "Enviando…" : "Enviar link de redefinição"}

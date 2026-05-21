@@ -29,12 +29,10 @@ export const listAllowedEmails = createServerFn({ method: "GET" })
 export const addAllowedEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z
-      .object({
-        email: z.string().email().toLowerCase(),
-        is_admin: z.boolean().default(false),
-      })
-      .parse(input),
+    z.object({
+      email: z.string().email().toLowerCase(),
+      is_admin: z.boolean().default(false),
+    }).parse(input)
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -50,7 +48,10 @@ export const removeAllowedEmail = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ email: z.string().email().toLowerCase() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.from("allowed_emails").delete().eq("email", data.email);
+    const { error } = await supabaseAdmin
+      .from("allowed_emails")
+      .delete()
+      .eq("email", data.email);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -74,14 +75,12 @@ export const listUsers = createServerFn({ method: "GET" })
 export const createUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z
-      .object({
-        email: z.string().email().toLowerCase(),
-        password: z.string().min(8).max(72),
-        display_name: z.string().min(1).max(80),
-        is_admin: z.boolean().default(false),
-      })
-      .parse(input),
+    z.object({
+      email: z.string().email().toLowerCase(),
+      password: z.string().min(8).max(72),
+      display_name: z.string().min(1).max(80),
+      is_admin: z.boolean().default(false),
+    }).parse(input)
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -103,7 +102,9 @@ export const createUser = createServerFn({ method: "POST" })
 
 export const changeOwnPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ password: z.string().min(8).max(72) }).parse(input))
+  .inputValidator((input) =>
+    z.object({ password: z.string().min(8).max(72) }).parse(input)
+  )
   .handler(async ({ data, context }) => {
     const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
       password: data.password,
@@ -115,12 +116,10 @@ export const changeOwnPassword = createServerFn({ method: "POST" })
 export const changeUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z
-      .object({
-        user_id: z.string().uuid(),
-        password: z.string().min(8).max(72),
-      })
-      .parse(input),
+    z.object({
+      user_id: z.string().uuid(),
+      password: z.string().min(8).max(72),
+    }).parse(input)
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);

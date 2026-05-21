@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -30,15 +30,11 @@ function Metas() {
 
   async function load() {
     const { data, error } = await supabase
-      .from("goals")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .from("goals").select("*").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setList((data ?? []) as Goal[]);
   }
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -47,26 +43,18 @@ function Metas() {
     const c = Number((current || "0").replace(",", "."));
     if (!name || !t) return toast.error("Informe nome e valor alvo");
     const { error } = await supabase.from("goals").insert({
-      user_id: user.id,
-      name,
-      target_amount: t,
-      current_amount: c,
+      user_id: user.id, name, target_amount: t, current_amount: c,
     });
     if (error) return toast.error(error.message);
     toast.success("Meta criada");
-    setName("");
-    setTarget("");
-    setCurrent("");
+    setName(""); setTarget(""); setCurrent("");
     load();
   }
 
   async function remove(id: string) {
     const { error } = await supabase.from("goals").delete().eq("id", id);
     if (error) toast.error(error.message);
-    else {
-      toast.success("Removida");
-      load();
-    }
+    else { toast.success("Removida"); load(); }
   }
 
   return (
@@ -77,34 +65,20 @@ function Metas() {
       </header>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nova meta</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Nova meta</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={add} className="grid gap-4 md:grid-cols-4">
             <div className="space-y-1.5 md:col-span-2">
               <Label>Nome</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Poupança"
-              />
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Poupança" />
             </div>
             <div className="space-y-1.5">
               <Label>Valor alvo (R$)</Label>
-              <Input
-                inputMode="decimal"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              />
+              <Input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Já alcançado (R$)</Label>
-              <Input
-                inputMode="decimal"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-              />
+              <Input inputMode="decimal" value={current} onChange={(e) => setCurrent(e.target.value)} />
             </div>
             <div className="md:col-span-4 flex justify-end">
               <Button type="submit">Adicionar meta</Button>
@@ -114,24 +88,16 @@ function Metas() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Suas metas</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Suas metas</CardTitle></CardHeader>
         <CardContent>
           {list.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma meta cadastrada.</p>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((g) => {
-                const pct = Math.min(
-                  100,
-                  Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100),
-                );
+                const pct = Math.min(100, Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100));
                 return (
-                  <div
-                    key={g.id}
-                    className="rounded-xl border bg-card p-5 flex items-center gap-4 relative group"
-                  >
+                  <div key={g.id} className="rounded-xl border bg-card p-5 flex items-center gap-4 relative group">
                     <CircularProgress value={pct} size={96} />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium truncate">{g.name}</div>
@@ -143,8 +109,7 @@ function Metas() {
                       </div>
                     </div>
                     <Button
-                      size="icon"
-                      variant="ghost"
+                      size="icon" variant="ghost"
                       className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
                       onClick={() => remove(g.id)}
                     >
@@ -168,38 +133,19 @@ function CircularProgress({ value, size = 96 }: { value: number; size?: number }
   const offset = c - (value / 100) * c;
   return (
     <svg width={size} height={size} className="-rotate-90 shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--muted)" strokeWidth={stroke} fill="none" />
       <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="var(--muted)"
-        strokeWidth={stroke}
-        fill="none"
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="oklch(0.55 0.06 150)"
-        strokeWidth={stroke}
-        fill="none"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
+        cx={size / 2} cy={size / 2} r={r}
+        stroke="oklch(0.55 0.06 150)" strokeWidth={stroke} fill="none"
+        strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
         style={{ transition: "stroke-dashoffset 700ms ease" }}
       />
       <text
-        x="50%"
-        y="50%"
-        dy="0.35em"
-        textAnchor="middle"
+        x="50%" y="50%" dy="0.35em" textAnchor="middle"
         className="fill-foreground"
-        fontSize={size * 0.22}
-        fontWeight={600}
+        fontSize={size * 0.22} fontWeight={600}
         transform={`rotate(90 ${size / 2} ${size / 2})`}
-      >
-        {value}%
-      </text>
+      >{value}%</text>
     </svg>
   );
 }

@@ -9,10 +9,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 function Layout() {
   const { session, loading } = useAuth();
-  if (loading)
-    return (
-      <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>
-    );
+  if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   if (!session) return <Navigate to="/login" />;
   return (
     <TitularProvider>

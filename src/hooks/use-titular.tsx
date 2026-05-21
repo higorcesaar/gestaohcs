@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 type Titular = "all" | "Higor" | "Mirelly";
 const TitularCtx = createContext<{ titular: Titular; setTitular: (t: Titular) => void }>({

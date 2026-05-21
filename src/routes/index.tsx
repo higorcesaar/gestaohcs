@@ -7,9 +7,6 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { session, loading } = useAuth();
-  if (loading)
-    return (
-      <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>
-    );
+  if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando…</div>;
   return <Navigate to={session ? "/dashboard" : "/login"} />;
 }

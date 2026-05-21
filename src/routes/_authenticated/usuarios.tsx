@@ -1,16 +1,11 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  listUsers,
-  createUser,
-  listAllowedEmails,
-  addAllowedEmail,
-  removeAllowedEmail,
-  changeOwnPassword,
-  changeUserPassword,
+  listUsers, createUser, listAllowedEmails, addAllowedEmail, removeAllowedEmail,
+  changeOwnPassword, changeUserPassword,
 } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,18 +23,8 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   component: UsuariosPage,
 });
 
-interface UserRow {
-  id: string;
-  email: string;
-  display_name: string | null;
-  created_at: string;
-  roles: string[];
-}
-interface AllowedRow {
-  email: string;
-  is_admin: boolean;
-  created_at: string;
-}
+interface UserRow { id: string; email: string; display_name: string | null; created_at: string; roles: string[] }
+interface AllowedRow { email: string; is_admin: boolean; created_at: string }
 
 function UsuariosPage() {
   const { role, loading, user } = useAuth();
@@ -79,8 +59,7 @@ function UsuariosPage() {
     try {
       await doChangeOwn({ data: { password: newPwd } });
       toast.success("Senha alterada com sucesso");
-      setNewPwd("");
-      setConfirmPwd("");
+      setNewPwd(""); setConfirmPwd("");
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -110,10 +89,7 @@ function UsuariosPage() {
     }
   }
 
-  useEffect(() => {
-    if (role === "admin") refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  useEffect(() => { if (role === "admin") refresh(); }, [role]);
 
   if (loading) return <p className="text-muted-foreground">Carregando…</p>;
   if (role !== "admin") return <Navigate to="/dashboard" />;
@@ -124,16 +100,11 @@ function UsuariosPage() {
     try {
       await doCreate({ data: { email, password, display_name: name, is_admin: isAdmin } });
       toast.success("Usuário criado");
-      setEmail("");
-      setPassword("");
-      setName("");
-      setIsAdmin(false);
+      setEmail(""); setPassword(""); setName(""); setIsAdmin(false);
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   async function onAddAllowed(e: React.FormEvent) {
@@ -142,14 +113,11 @@ function UsuariosPage() {
     try {
       await doAdd({ data: { email: allowEmail, is_admin: allowAdmin } });
       toast.success("E-mail autorizado");
-      setAllowEmail("");
-      setAllowAdmin(false);
+      setAllowEmail(""); setAllowAdmin(false);
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   async function onRemoveAllowed(emailToRemove: string) {
@@ -157,9 +125,7 @@ function UsuariosPage() {
       await doRemove({ data: { email: emailToRemove } });
       toast.success("E-mail removido");
       refresh();
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
+    } catch (e) { toast.error((e as Error).message); }
   }
 
   return (
@@ -178,120 +144,60 @@ function UsuariosPage() {
           <form onSubmit={onChangePassword} className="grid gap-3 md:grid-cols-3 md:items-end">
             <div className="space-y-1.5">
               <Label>Nova senha</Label>
-              <Input
-                type="password"
-                minLength={8}
-                value={newPwd}
-                onChange={(e) => setNewPwd(e.target.value)}
-                required
-              />
+              <Input type="password" minLength={8} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} required />
             </div>
             <div className="space-y-1.5">
               <Label>Confirmar senha</Label>
-              <Input
-                type="password"
-                minLength={8}
-                value={confirmPwd}
-                onChange={(e) => setConfirmPwd(e.target.value)}
-                required
-              />
+              <Input type="password" minLength={8} value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} required />
             </div>
-            <Button type="submit" disabled={busy}>
-              Alterar senha
-            </Button>
+            <Button type="submit" disabled={busy}>Alterar senha</Button>
           </form>
         </CardContent>
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Criar usuário</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Criar usuário</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={onCreate} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Nome</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Senha (mín. 8)</Label>
-                <Input
-                  type="password"
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+              <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+              <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+              <div className="space-y-1.5"><Label>Senha (mín. 8)</Label><Input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
               <div className="flex items-center justify-between rounded-md border px-3 py-2">
                 <span className="text-sm">Conceder permissão de admin</span>
                 <Switch checked={isAdmin} onCheckedChange={setIsAdmin} />
               </div>
-              <Button type="submit" disabled={busy} className="w-full">
-                Criar usuário
-              </Button>
+              <Button type="submit" disabled={busy} className="w-full">Criar usuário</Button>
             </form>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Autorizar e-mail (auto-cadastro)</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Autorizar e-mail (auto-cadastro)</CardTitle></CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground mb-3">
-              Adicione um e-mail aqui para que a pessoa possa se cadastrar sozinha pela tela de
-              login.
+              Adicione um e-mail aqui para que a pessoa possa se cadastrar sozinha pela tela de login.
             </p>
             <form onSubmit={onAddAllowed} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input
-                  type="email"
-                  value={allowEmail}
-                  onChange={(e) => setAllowEmail(e.target.value)}
-                  required
-                />
-              </div>
+              <div className="space-y-1.5"><Label>E-mail</Label><Input type="email" value={allowEmail} onChange={(e) => setAllowEmail(e.target.value)} required /></div>
               <div className="flex items-center justify-between rounded-md border px-3 py-2">
                 <span className="text-sm">Cadastrar como admin</span>
                 <Switch checked={allowAdmin} onCheckedChange={setAllowAdmin} />
               </div>
-              <Button type="submit" disabled={busy} variant="secondary" className="w-full">
-                Autorizar
-              </Button>
+              <Button type="submit" disabled={busy} variant="secondary" className="w-full">Autorizar</Button>
             </form>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Usuários ativos</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Usuários ativos</CardTitle></CardHeader>
         <CardContent>
           {users.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado.</p>
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Papéis</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Papéis</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
                 {users.map((u) => (
                   <TableRow key={u.id}>
@@ -299,17 +205,11 @@ function UsuariosPage() {
                     <TableCell>{u.email}</TableCell>
                     <TableCell className="space-x-1">
                       {u.roles.map((r) => (
-                        <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>
-                          {r}
-                        </Badge>
+                        <Badge key={r} variant={r === "admin" ? "default" : "secondary"}>{r}</Badge>
                       ))}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onResetUserPassword(u.id, u.email)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => onResetUserPassword(u.id, u.email)}>
                         Redefinir senha
                       </Button>
                     </TableCell>
@@ -322,28 +222,18 @@ function UsuariosPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">E-mails autorizados</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">E-mails autorizados</CardTitle></CardHeader>
         <CardContent>
           {allowed.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum e-mail autorizado.</p>
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Admin?</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>E-mail</TableHead><TableHead>Admin?</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
                 {allowed.map((a) => (
                   <TableRow key={a.email}>
                     <TableCell>{a.email}</TableCell>
-                    <TableCell>
-                      {a.is_admin ? <Badge>admin</Badge> : <Badge variant="secondary">user</Badge>}
-                    </TableCell>
+                    <TableCell>{a.is_admin ? <Badge>admin</Badge> : <Badge variant="secondary">user</Badge>}</TableCell>
                     <TableCell className="text-right">
                       <Button size="icon" variant="ghost" onClick={() => onRemoveAllowed(a.email)}>
                         <Trash2 className="size-4 text-destructive" />
