@@ -42,14 +42,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ],
     },
     {
-      label: "Financeiro",
+      label: "FINANCEIRO",
       items: [
         { to: "/contas", label: "Contas", icon: Landmark },
         { to: "/planejamento", label: "Planejamento", icon: CalendarRange },
       ],
     },
     {
-      label: "Configurações",
+      label: "CONFIGURAÇÕES",
       items: [
         { to: "/configuracoes", label: "Configurações", icon: Settings },
         { to: "/backup", label: "Backup e Dados", icon: Database },
@@ -117,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 border-r border-sidebar-border bg-sidebar flex-col">
+      <aside className="hidden lg:flex w-64 border-r border-sidebar-border bg-sidebar flex-col" style={{ backgroundColor: 'var(--color-sidebar)' }}>
         {SidebarContent}
       </aside>
 
