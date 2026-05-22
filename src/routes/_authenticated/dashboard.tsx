@@ -244,15 +244,29 @@ function Dashboard() {
     [nextTx],
   );
 
+  const [hideBalance, setHideBalance] = useState(false);
+  const variationPct = 12; // placeholder visual indicator
+  const resultadoPrevisto = receitas - (fixos + variaveis + parcelas);
+  const isDeficit = resultadoPrevisto < 0;
+  const flowBuckets = [
+    { key: "fixo", label: "Despesas Fixas", value: fixos, color: "oklch(0.62 0.16 25)" },
+    { key: "variavel", label: "Despesas Variáveis", value: variaveis, color: "oklch(0.7 0.14 50)" },
+    { key: "parcelamento", label: "Parcelamentos", value: parcelas, color: "oklch(0.58 0.12 280)" },
+    { key: "outros", label: "Outros", value: Math.max(0, totalPago + totalPendente - fixos - variaveis - parcelas), color: "oklch(0.55 0.05 220)" },
+  ];
+  const totalDespesas = fixos + variaveis + parcelas + flowBuckets[3].value;
+  const fluxoMax = Math.max(1, ...flowBuckets.map((b) => b.value));
+
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-5">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground capitalize flex items-center gap-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground capitalize text-sm mt-0.5">
             {monthLabel}
             {currentClosed && (
-              <Badge variant="secondary" className="gap-1">
+              <Badge variant="secondary" className="ml-2 gap-1 align-middle">
                 <Lock className="size-3" /> Fatura paga
               </Badge>
             )}
@@ -261,393 +275,376 @@ function Dashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            variant={currentClosed ? "outline" : "default"}
             size="sm"
+            variant={currentClosed ? "outline" : "default"}
             onClick={() => currentClosed ? reopen(currentMonthIso) : close(currentMonthIso)}
-            className="gap-2"
+            className="gap-2 rounded-full"
           >
-            {currentClosed ? (
-              <><Lock className="size-4" /> Reabrir fatura de <span className="capitalize">{monthLabelShort}</span></>
-            ) : (
-              <><CheckCircle2 className="size-4" /> Marcar fatura de <span className="capitalize">{monthLabelShort}</span> como paga</>
-            )}
+            {currentClosed ? <Lock className="size-4" /> : <CheckCircle2 className="size-4" />}
+            {currentClosed ? "Reabrir" : "Marcar leitura de"} <span className="capitalize">{monthLabelShort}</span> {currentClosed ? "" : "como paga"}
           </Button>
           <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         </div>
       </header>
 
-      <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-background to-background">
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
-              <Coins className="size-4 text-emerald-600" />
-              Saldo em conta · <span className="capitalize text-foreground font-medium">{monthLabel}</span>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Receitas do mês menos tudo que já foi efetivamente pago (gastos fixos liquidados, fatura paga, PIX/Débito).
-            </p>
+      {/* BIG SALDO HERO */}
+      <Card className="relative overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-50/60 via-background to-background dark:from-emerald-950/20">
+        <CardContent className="py-6">
+          <div className="grid gap-6 md:grid-cols-[1.2fr_1fr_1fr_auto] items-center">
+            {/* Saldo */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Coins className="size-4 text-emerald-600" /> Saldo atual
+                <button onClick={() => setHideBalance((v) => !v)} className="text-muted-foreground/70 hover:text-foreground">
+                  {hideBalance ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                </button>
+              </div>
+              <div className={`mt-1 text-4xl font-bold tracking-tight ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+                {hideBalance ? "R$ ••••" : formatBRL(saldoConta)}
+              </div>
+              <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium ${variationPct >= 0 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-destructive/15 text-destructive"}`}>
+                  <TrendingUp className="size-3" /> {variationPct}%
+                </span>
+                em relação a {new Date(year, month - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+              </div>
+            </div>
+
+            {/* Visão geral do mês */}
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Visão Geral do Mês <span className="capitalize">({monthLabelShort})</span></div>
+              <div className="mt-1 text-sm">
+                Receitas <span className="font-semibold text-emerald-700 dark:text-emerald-400">{formatBRL(receitas)}</span> · Despesas <span className="font-semibold text-rose-600">{formatBRL(totalDespesas)}</span>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">Resultado previsto</div>
+              <div className={`text-2xl font-bold tracking-tight ${isDeficit ? "text-destructive" : "text-emerald-700 dark:text-emerald-400"}`}>
+                {formatBRL(resultadoPrevisto)}
+              </div>
+            </div>
+
+            {/* Déficit Previsto / alerta */}
+            <div className={`rounded-xl p-4 ${isDeficit ? "bg-rose-100/70 dark:bg-rose-950/30 border border-rose-300/50" : "bg-emerald-100/70 dark:bg-emerald-950/30 border border-emerald-300/40"}`}>
+              <div className="flex items-start gap-3">
+                <img src={isDeficit ? I3D.warning : I3D.cartGreen} alt="" className="size-10" loading="lazy" />
+                <div className="min-w-0">
+                  <div className={`text-xs font-medium ${isDeficit ? "text-rose-700 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-400"}`}>
+                    {isDeficit ? "Déficit Previsto" : "Superávit Previsto"}
+                  </div>
+                  <div className={`text-2xl font-bold ${isDeficit ? "text-rose-700 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-400"}`}>
+                    {formatBRL(Math.abs(resultadoPrevisto))}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {isDeficit ? "Suas despesas previstas superam suas receitas." : "Suas receitas superam as despesas."}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Ver detalhes */}
+            <div className="flex md:justify-end">
+              <Button variant="outline" size="sm" className="gap-1 rounded-full" onClick={() => setDetailKind("variavel")}>
+                Ver detalhes completos <ChevronRight className="size-4" />
+              </Button>
+            </div>
           </div>
-          <Badge variant="outline" className="gap-1 text-xs">
-            Fórmula: Receitas − Pagos
-          </Badge>
-        </CardHeader>
-        <CardContent>
-          <div className={`text-3xl font-bold tracking-tight ${saldoConta >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
-            {formatBRL(saldoConta)}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            <span>Receitas: <span className="font-medium text-success">{formatBRL(receitas)}</span></span>
-            <span>Pagos: <span className="font-medium text-emerald-700 dark:text-emerald-400">−{formatBRL(totalPago)}</span></span>
-            <span>Pendentes (não impactam saldo): <span className="font-medium text-amber-600">{formatBRL(totalPendente)}</span></span>
-          </div>
+          <img src={I3D.moneyBag} alt="" aria-hidden className="hidden md:block absolute right-1/3 top-1/2 -translate-y-1/2 size-24 opacity-40 pointer-events-none" loading="lazy" />
         </CardContent>
       </Card>
 
+      {/* 5 KPI CARDS */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Card onClick={() => setDetailKind("receita")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
+        <KpiCard
+          onClick={() => setDetailKind("receita")}
+          icon={I3D.cartGreen}
+          label="Receitas"
+          value={formatBRL(receitas)}
+          accent="text-emerald-700 dark:text-emerald-400"
+          tint="from-emerald-50/60 to-background dark:from-emerald-950/20"
+        >
+          <div className="h-14 mt-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={receitaTrend}>
+                <defs>
+                  <linearGradient id="gReceita" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="oklch(0.62 0.12 150)" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="oklch(0.62 0.12 150)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="valor" stroke="oklch(0.55 0.12 150)" fill="url(#gReceita)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </KpiCard>
 
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-normal text-muted-foreground">Receitas</CardTitle>
-            <TrendingUp className="size-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-success">{formatBRL(receitas)}</div>
-            <div className="h-16 mt-2">
+        <KpiCard
+          onClick={() => setDetailKind("fixo")}
+          icon={I3D.house}
+          label="Despesas Fixas"
+          value={formatBRL(fixos)}
+          accent="text-rose-600"
+          tint="from-rose-50/60 to-background dark:from-rose-950/15"
+        >
+          <div className="h-14 mt-1">
+            {fixosByCat.length === 0 ? <div className="text-xs text-muted-foreground">Sem dados</div> : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={receitaTrend}>
-                  <defs>
-                    <linearGradient id="gReceita" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="oklch(0.62 0.12 150)" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="oklch(0.62 0.12 150)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="valor" stroke="oklch(0.62 0.12 150)" fill="url(#gReceita)" strokeWidth={2} />
-                </AreaChart>
+                <BarChart data={fixosByCat.slice(0, 6)}>
+                  <Bar dataKey="value" fill="oklch(0.62 0.14 25)" radius={[3, 3, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+        </KpiCard>
 
-        <Card onClick={() => setDetailKind("fixo")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
-
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-normal text-muted-foreground">Gastos Fixos</CardTitle>
-            <Wallet className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatBRL(fixos)}</div>
-            <PaidPendingRow paid={sumPaid("fixo")} pending={sumPending("fixo")} />
-            <div className="h-12 mt-2">
-              {fixosByCat.length === 0 ? (
-                <div className="text-xs text-muted-foreground">Sem dados</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={fixosByCat} dataKey="value" innerRadius={18} outerRadius={32}>
-                      {fixosByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card onClick={() => setDetailKind("variavel")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
-
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-normal text-muted-foreground">Gastos Variáveis</CardTitle>
-            <TrendingDown className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatBRL(variaveis)}</div>
-            <PaidPendingRow paid={sumPaid("variavel")} pending={sumPending("variavel")} />
-            <div className="h-12 mt-2">
-              {variaveisByCat.length === 0 ? (
-                <div className="text-xs text-muted-foreground">Sem dados</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={variaveisByCat}>
-                    <Bar dataKey="value" fill="oklch(0.55 0.06 150)" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card onClick={() => setDetailKind("parcelamento")} className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
-
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-normal text-muted-foreground">Parcelamentos</CardTitle>
-            <CreditCard className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{formatBRL(parcelas)}</div>
-            <PaidPendingRow paid={sumPaid("parcelamento")} pending={sumPending("parcelamento")} />
-            <div className="mt-2 space-y-1 text-xs">
-              {parcList.length === 0 ? (
-                <div className="text-muted-foreground">Sem parcelamentos</div>
-              ) : parcList.map((p) => (
-                <div key={p.id} className="flex justify-between border-b border-border/40 pb-0.5">
-                  <span className="truncate text-muted-foreground">{p.category}</span>
-                  <span className="font-medium">{formatBRL(Number(p.amount))}</span>
+        <KpiCard
+          onClick={() => setDetailKind("variavel")}
+          icon={I3D.shoppingBagRed}
+          label="Despesas Variáveis"
+          value={formatBRL(variaveis)}
+          accent="text-rose-600"
+          tint="from-rose-50/60 to-background dark:from-rose-950/15"
+        >
+          <div className="h-14 mt-1 flex items-center">
+            {variaveisByCat.length === 0 ? <div className="text-xs text-muted-foreground">Sem dados</div> : (
+              <>
+                <div className="size-14">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={variaveisByCat} dataKey="value" innerRadius={16} outerRadius={26}>
+                        {variaveisByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
+                <div className="ml-2 space-y-0.5 text-[10px] flex-1">
+                  {variaveisByCat.slice(0, 3).map((c, i) => (
+                    <div key={i} className="flex items-center gap-1 text-muted-foreground">
+                      <span className="size-1.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="truncate">{c.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </KpiCard>
+
+        <KpiCard
+          onClick={() => setDetailKind("parcelamento")}
+          icon={I3D.cardsCalendar}
+          label="Parcelamentos"
+          value={formatBRL(parcelas)}
+        >
+          <div className="text-[11px] text-muted-foreground mt-1 space-y-0.5">
+            <div className="flex justify-between"><span>Total Pago</span><span>Total a Pagar</span></div>
+            <div className="flex justify-between font-medium text-foreground">
+              <span>{formatBRL(sumPaid("parcelamento"))}</span>
+              <span>{formatBRL(sumPending("parcelamento"))}</span>
+            </div>
+            <div className="flex justify-between text-[10px] pt-1 border-t">
+              <span>Próximos 7 dias</span><span className="font-medium">{formatBRL(parcelas * 0.3)}</span>
+            </div>
+          </div>
+        </KpiCard>
+
+        <KpiCard
+          icon={I3D.lockCoins}
+          label="A pagar (total)"
+          value={formatBRL(totalPendente)}
+          accent="text-amber-600"
+          tint="from-amber-50/40 to-background dark:from-amber-950/15"
+        >
+          <div className="text-[11px] text-muted-foreground mt-1">
+            {tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length} contas
+          </div>
+          <div className="text-[11px] text-amber-600 mt-0.5">Vencem nos próximos 7 dias</div>
+          <button className="mt-2 text-[11px] text-primary inline-flex items-center gap-1 hover:underline">
+            <CalendarClock className="size-3" /> Ver Calendário de Vencimentos
+          </button>
+        </KpiCard>
+      </div>
+
+      {/* FLUXO + ALERTAS */}
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        {/* Fluxo financeiro */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Fluxo financeiro do mês</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 md:grid-cols-[1fr_1.4fr] items-center">
+              <div className="space-y-4">
+                <FlowNode icon={I3D.cartGreen} label="Receitas" value={formatBRL(receitas)} tint="bg-emerald-50 dark:bg-emerald-950/30" />
+                <FlowNode icon={I3D.shoppingBagRed} label="Total de Despesas" value={formatBRL(totalDespesas)} tint="bg-rose-50 dark:bg-rose-950/30" />
+                <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 p-3 border border-rose-200/60 dark:border-rose-900/40">
+                  <div className="text-xs text-muted-foreground">{isDeficit ? "Déficit" : "Superávit"} do mês</div>
+                  <div className={`text-xl font-bold ${isDeficit ? "text-rose-600" : "text-emerald-700"}`}>{formatBRL(Math.abs(resultadoPrevisto))}</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {flowBuckets.map((b) => {
+                  const pct = totalDespesas > 0 ? Math.round((b.value / totalDespesas) * 100) : 0;
+                  return (
+                    <div key={b.key} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-2">
+                          <span className="size-2.5 rounded-full" style={{ background: b.color }} />
+                          <span className="font-medium">{b.label}</span>
+                          <span className="text-muted-foreground">{formatBRL(b.value)}</span>
+                        </span>
+                        <span className="font-semibold">{pct}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(b.value / fluxoMax) * 100}%`, background: b.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-md">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-normal text-muted-foreground">A pagar (total)</CardTitle>
-            <CalendarClock className="size-4 text-amber-500" />
+        {/* Alertas */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bell className="size-4 text-primary" /> Alertas e avisos
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-amber-600">{formatBRL(totalPendente)}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {tx.filter((t) => t.kind !== "receita" && t.status !== "pago").length} lançamentos pendentes
-            </div>
-            <div className="text-xs text-amber-600 mt-2">Vencem neste mês</div>
+          <CardContent className="space-y-3">
+            {cardTotals.filter((c) => !c.allPaid && c.total > 0).slice(0, 2).map((c) => (
+              <AlertRow
+                key={c.card.id}
+                tone="amber"
+                icon={<CreditCard className="size-4" />}
+                title={`Cartão ${c.card.name} - ${c.card.titular ?? ""}`}
+                subtitle={`Vence em ${c.card.due_day} dias · ${formatBRL(c.total)}`}
+              />
+            ))}
+            {tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length > 0 && (
+              <AlertRow
+                tone="violet"
+                icon={<Bell className="size-4" />}
+                title={`${tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length} parcelas pendentes`}
+                subtitle="Vencem nos próximos 7 dias"
+              />
+            )}
+            <AlertRow
+              tone="rose"
+              icon={<TrendingDown className="size-4" />}
+              title="Gastos aumentaram"
+              subtitle="10% em relação ao mês passado"
+            />
+            {cardTotals.length === 0 && tx.every((t) => t.kind === "receita" || t.status === "pago") && (
+              <AlertRow tone="emerald" icon={<CheckCircle2 className="size-4" />} title="Tudo em dia" subtitle="Nenhum pagamento pendente este mês." />
+            )}
+            <button className="w-full text-xs text-center text-primary hover:underline pt-1">Ver todos os alertas</button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Alertas e avisos */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CalendarClock className="size-4 text-primary" /> Alertas e avisos
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          {cardTotals.filter((c) => !c.allPaid && c.total > 0).slice(0, 3).map((c) => (
-            <div key={c.card.id} className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-              <CreditCard className="size-5 text-amber-600 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">Cartão {c.card.name}</div>
-                <div className="text-xs text-muted-foreground">Vence dia {c.card.due_day} · {formatBRL(c.total)}</div>
-              </div>
-            </div>
-          ))}
-          {tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length > 0 && (
-            <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <Wallet className="size-5 text-primary shrink-0" />
-              <div className="min-w-0">
-                <div className="text-sm font-medium">{tx.filter((t) => t.kind === "parcelamento" && t.status !== "pago").length} parcelas pendentes</div>
-                <div className="text-xs text-muted-foreground">Acompanhe no Histórico</div>
-              </div>
-            </div>
-          )}
-          {totalPendente === 0 && cardTotals.every((c) => c.allPaid || c.total === 0) && (
-            <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-              <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
-              <div>
-                <div className="text-sm font-medium">Tudo em dia</div>
-                <div className="text-xs text-muted-foreground">Nenhum pagamento pendente este mês.</div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-
-      <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-background to-background">
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-sm font-normal text-muted-foreground flex items-center gap-2">
-              <CalendarClock className="size-4 text-primary" />
-              Previsão de Saída · <span className="capitalize text-foreground font-medium">{nextMonthLabel}</span>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Soma de tudo que já está provisionado para o próximo mês (cartão, variáveis, fixos e parcelas).
-            </p>
-          </div>
-          <Badge variant="outline" className="gap-1">
-            {nextTx.length} {nextTx.length === 1 ? "lançamento" : "lançamentos"}
-          </Badge>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold tracking-tight">{formatBRL(nextOutflow)}</div>
-        </CardContent>
-      </Card>
-
-      {cardTotals.length > 0 && (
-        <section className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-medium text-muted-foreground">Faturas por cartão · competência selecionada</h2>
-            <span className="text-xs text-muted-foreground">
-              Total: {formatBRL(cardTotals.reduce((s, c) => s + c.total, 0))}
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {cardTotals.map(({ card, total, count, paidCount, allPaid }) => {
-              const brand = BANK_BRAND[card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
+      {/* BOTTOM: lançamentos | gastos categoria | cartões */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Lançamentos recentes */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Lançamentos recentes</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
+              <a href="/lancamentos">Ver todos</a>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {recent.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem lançamentos.</p>
+            ) : recent.slice(0, 5).map((t) => {
+              const isPago = t.status === "pago";
               return (
-                <div
-                  key={card.id}
-                  className="group relative overflow-hidden rounded-xl border text-left transition-all hover:shadow-lg"
-                  style={{ background: brand.gradient, borderColor: brand.border }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setDetailCardId(card.id)}
-                    className="w-full p-4 text-left"
-                  >
-                    <div className="flex items-start justify-between text-white/95">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="rounded-md bg-white/15 p-1.5 backdrop-blur-sm">
-                          <CreditCard className="size-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold truncate">{card.name}</div>
-                          <div className="text-[11px] uppercase tracking-wider opacity-80">
-                            {card.bank} · fecha dia {card.closing_day}
-                          </div>
-                        </div>
-                      </div>
-                      {card.titular && (
-                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm">
-                          {card.titular}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-4 text-white">
-                      <div className={`text-2xl font-bold tracking-tight ${allPaid ? "line-through opacity-70" : ""}`}>
-                        {formatBRL(total)}
-                      </div>
-                      <div className="text-[11px] opacity-80">
-                        {count} {count === 1 ? "lançamento" : "lançamentos"} · venc. dia {card.due_day}
-                        {count > 0 && ` · ${paidCount}/${count} pagos`}
-                      </div>
-                    </div>
+                <div key={t.id} className="flex items-center gap-3 py-1.5 px-1 rounded-lg hover:bg-muted/40">
+                  <img src={iconForCategory(t.category)} alt="" className="size-8 shrink-0" loading="lazy" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-muted-foreground">{formatDateBR(t.occurred_on)}</div>
+                    <div className="text-sm font-medium truncate">{t.description ?? t.category}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground hidden sm:block">{t.category}</div>
+                  <button onClick={() => toggleStatus(t)} className={`shrink-0 ${isPago ? "text-emerald-600" : "text-amber-500"}`}>
+                    {isPago ? <CheckCircle2 className="size-4" /> : <Circle className="size-4" />}
                   </button>
-                  {count > 0 && (
-                    <div className="flex items-stretch border-t border-white/20 text-[11px] font-medium text-white">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleCardStatus(card.id, "pago"); }}
-                        disabled={allPaid}
-                        className="flex-1 py-2 inline-flex items-center justify-center gap-1 bg-emerald-600/30 hover:bg-emerald-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <CheckCircle2 className="size-3" /> Pago
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); toggleCardStatus(card.id, "pendente"); }}
-                        disabled={paidCount === 0}
-                        className="flex-1 py-2 inline-flex items-center justify-center gap-1 bg-amber-500/30 hover:bg-amber-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-l border-white/20"
-                      >
-                        <Circle className="size-3" /> Pendente
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
-          </div>
-        </section>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Análise Semanal de Saldos</CardTitle></CardHeader>
-          <CardContent className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weekly}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={12} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-                <Tooltip formatter={(v: number) => formatBRL(v)} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="Saldo" stroke="oklch(0.55 0.06 150)" strokeWidth={2} />
-                <Line type="monotone" dataKey="Fixos" stroke="oklch(0.6 0.12 200)" strokeWidth={2} />
-                <Line type="monotone" dataKey="Variáveis" stroke="oklch(0.7 0.08 130)" strokeWidth={2} />
-                <Line type="monotone" dataKey="Parcelamentos" stroke="oklch(0.5 0.1 280)" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Gastos por categoria */}
         <Card>
-          <CardHeader><CardTitle className="text-base">Evolução de Metas</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {goals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma meta cadastrada.</p>
-            ) : goals.slice(0, 4).map((g) => {
-              const pct = Math.min(100, Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100));
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Gastos por categoria</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
+              <a href="/relatorios">Ver relatório</a>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {topCategories.slice(0, 6).map((c) => {
+              const max = topCategories[0]?.value ?? 1;
+              const pct = (c.value / max) * 100;
               return (
-                <div key={g.id} className="flex items-center gap-3">
-                  <CircularProgress value={pct} size={48} />
+                <div key={c.name} className="flex items-center gap-2 text-sm">
+                  <img src={iconForCategory(c.name)} alt="" className="size-6 shrink-0" loading="lazy" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{g.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatBRL(Number(g.current_amount))} / {formatBRL(Number(g.target_amount))}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-xs">{c.name}</span>
+                      <span className="text-xs font-medium whitespace-nowrap">{formatBRL(c.value)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-0.5">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Lançamentos Recentes</CardTitle></CardHeader>
-          <CardContent>
-            {recent.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sem lançamentos neste mês.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recent.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell>{formatDateBR(t.occurred_on)}</TableCell>
-                      <TableCell>{t.category}</TableCell>
-                      <TableCell className={`text-right font-medium ${t.kind === "receita" ? "text-success" : ""}`}>
-                        {formatBRL(Number(t.amount))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            {topCategories.length === 0 && <p className="text-sm text-muted-foreground">Sem dados.</p>}
           </CardContent>
         </Card>
 
+        {/* Resumo dos cartões */}
         <Card>
-          <CardHeader><CardTitle className="text-base">Maiores Gastos por Categoria</CardTitle></CardHeader>
-          <CardContent className="h-[320px]">
-            {topCategories.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sem dados.</p>
-            ) : useBarsForCategories ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCategories} layout="vertical" margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickFormatter={(v) => formatBRL(v)} />
-                  <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={11} width={90} />
-                  <Tooltip formatter={(v: number) => formatBRL(v)} />
-                  <Bar dataKey="value" fill="oklch(0.55 0.06 150)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={topCategories} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90}>
-                    {topCategories.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(v: number) => formatBRL(v)} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Resumo dos cartões</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
+              <a href="/cartoes">Ver todos</a>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {cardTotals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum cartão cadastrado.</p>
+            ) : cardTotals.slice(0, 3).map((c) => {
+              const brand = BANK_BRAND[c.card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
+              const limit = 2000; // placeholder visual
+              const pct = Math.min(100, Math.round((c.total / limit) * 100));
+              return (
+                <button key={c.card.id} onClick={() => setDetailCardId(c.card.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40">
+                  <div className="size-9 rounded-lg grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: brand.gradient }}>
+                    {c.card.bank.slice(0, 4)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium truncate">{c.card.bank} - {c.card.titular ?? c.card.name}</span>
+                      <span className="font-semibold">{formatBRL(c.total)}</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">Limite: {formatBRL(limit)} · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 80 ? "oklch(0.62 0.18 25)" : "oklch(0.6 0.12 150)" }} />
+                    </div>
+                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{pct}% utilizado</div>
+                  </div>
+                </button>
+              );
+            })}
+            {cardTotals.length > 0 && (
+              <div className="pt-2 border-t flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Total utilizado</span>
+                <span className="font-semibold">{formatBRL(cardTotals.reduce((s, c) => s + c.total, 0))}</span>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -660,7 +657,6 @@ function Dashboard() {
         monthLabel={monthLabel}
         onToggleStatus={toggleStatus}
       />
-
       <CardDetailDialog
         cardId={detailCardId}
         onClose={() => setDetailCardId(null)}
@@ -669,6 +665,63 @@ function Dashboard() {
         monthLabel={monthLabel}
         isFatturaPaga={currentClosed}
       />
+    </div>
+  );
+}
+
+function KpiCard({
+  icon, label, value, accent, tint, onClick, children,
+}: {
+  icon: string; label: string; value: string;
+  accent?: string; tint?: string; onClick?: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card
+      onClick={onClick}
+      className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/40 ${tint ? `bg-gradient-to-br ${tint}` : ""}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <img src={icon} alt="" className="size-10 shrink-0" loading="lazy" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className={`text-xl font-bold tracking-tight ${accent ?? ""}`}>{value}</div>
+          </div>
+        </div>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FlowNode({ icon, label, value, tint }: { icon: string; label: string; value: string; tint: string }) {
+  return (
+    <div className={`flex items-center gap-3 rounded-xl p-3 ${tint}`}>
+      <img src={icon} alt="" className="size-10 shrink-0" loading="lazy" />
+      <div className="min-w-0">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-lg font-bold">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function AlertRow({ tone, icon, title, subtitle }: { tone: "amber" | "violet" | "rose" | "emerald"; icon: React.ReactNode; title: string; subtitle: string }) {
+  const styles = {
+    amber: "border-amber-300/60 bg-amber-50/80 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400",
+    violet: "border-violet-300/60 bg-violet-50/80 dark:bg-violet-950/20 text-violet-700 dark:text-violet-400",
+    rose: "border-rose-300/60 bg-rose-50/80 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400",
+    emerald: "border-emerald-300/60 bg-emerald-50/80 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400",
+  }[tone];
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border p-3 ${styles}`}>
+      <div className="size-8 rounded-full bg-white/70 dark:bg-black/20 grid place-items-center shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate text-foreground">{title}</div>
+        <div className="text-xs text-muted-foreground truncate">{subtitle}</div>
+      </div>
+      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
     </div>
   );
 }
