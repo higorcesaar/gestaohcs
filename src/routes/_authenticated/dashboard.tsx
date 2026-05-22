@@ -15,7 +15,8 @@ import {
   CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { formatBRL, formatDateBR, parseLocalDate } from "@/lib/finance-constants";
-import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins } from "lucide-react";
+import { TrendingUp, Wallet, TrendingDown, CreditCard, CheckCircle2, Lock, CalendarClock, Circle, Coins, ChevronRight, Bell, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { I3D, iconForCategory } from "@/lib/category-icons";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
