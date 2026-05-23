@@ -9,7 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Bell, Calendar, CreditCard, User, Filter, Plus, ChevronRight,
+  Bell, Calendar, CreditCard, User, Filter, Plus, ChevronRight, ChevronLeft,
   ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Trash2,
   LayoutGrid, List as ListIcon,
 } from "lucide-react";
@@ -86,6 +86,8 @@ function Lancamentos() {
   const [quick, setQuick] = useState<QuickFilter>("todos");
   const [sort, setSort] = useState<"recent" | "old" | "amount">("recent");
   const [view, setView] = useState<"list" | "grid">("list");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [monthFilter, setMonthFilter] = useState<string>(() => {
     const n = new Date();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`;
@@ -233,6 +235,16 @@ function Lancamentos() {
     if (sort === "amount") arr.sort((a, b) => Number(b.amount) - Number(a.amount));
     return arr;
   }, [list, quick, sort, monthFilter]);
+
+  // ---- Paginação ----
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page],
+  );
+
+  // Reseta página ao mudar filtros
+  useEffect(() => { setPage(1); }, [quick, sort, monthFilter]);
 
   // Opções do seletor de mês (12 meses centrados em hoje)
   const monthOptions = useMemo(() => {
@@ -485,11 +497,24 @@ function Lancamentos() {
         ) : filtered.length === 0 ? (
           <Card className="rounded-2xl"><CardContent className="p-6 text-sm text-muted-foreground">Nenhum lançamento encontrado.</CardContent></Card>
         ) : (
-          <div className={view === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
-            {filtered.map((t) => (
-              <TxRow key={t.id} t={t} onToggle={() => toggleStatus(t)} onDelete={() => remove(t.id)} />
-            ))}
-          </div>
+          <>
+            <div className={view === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
+              {paginated.map((t) => (
+                <TxRow key={t.id} t={t} onToggle={() => toggleStatus(t)} onDelete={() => remove(t.id)} />
+              ))}
+            </div>
+
+            {/* PAGINAÇÃO */}
+            {totalPages > 1 && (
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={filtered.length}
+                pageSize={PAGE_SIZE}
+                onChange={setPage}
+              />
+            )}
+          </>
         )}
       </section>
 
