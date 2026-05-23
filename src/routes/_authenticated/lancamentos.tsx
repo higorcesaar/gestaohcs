@@ -229,8 +229,8 @@ function Lancamentos() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="text-3xl font-semibold">Lançamentos</h1>
-        <p className="text-muted-foreground">Cadastre gastos fixos, variáveis, parcelamentos e receitas.</p>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-gradient-primary">Lançamentos</h1>
+        <p className="text-muted-foreground mt-1">Cadastre gastos fixos, variáveis, parcelamentos e receitas.</p>
       </header>
 
       <Card>

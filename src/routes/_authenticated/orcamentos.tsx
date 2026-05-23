@@ -275,10 +275,13 @@ function Orcamentos() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold flex items-center gap-3">
-            <PiggyBank className="size-7 text-primary" /> Gestão Orçamentária
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-3">
+            <span className="inline-grid place-items-center size-11 rounded-2xl premium-chip">
+              <PiggyBank className="size-6 text-primary" />
+            </span>
+            <span className="text-gradient-primary">Gestão Orçamentária</span>
           </h1>
-          <p className="text-muted-foreground capitalize">{monthLabel}</p>
+          <p className="text-muted-foreground capitalize mt-1">{monthLabel}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => setEditOpen(true)} className="gap-2">
