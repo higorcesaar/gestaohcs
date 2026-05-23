@@ -9,7 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Bell, Calendar, CreditCard, User, Filter, Plus, ChevronRight, ChevronLeft,
+  Bell, Calendar, CreditCard, User, Filter, Plus, ChevronRight,
   ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Trash2,
   LayoutGrid, List as ListIcon,
 } from "lucide-react";
@@ -86,8 +86,6 @@ function Lancamentos() {
   const [quick, setQuick] = useState<QuickFilter>("todos");
   const [sort, setSort] = useState<"recent" | "old" | "amount">("recent");
   const [view, setView] = useState<"list" | "grid">("list");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
   const [monthFilter, setMonthFilter] = useState<string>(() => {
     const n = new Date();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`;
@@ -235,16 +233,6 @@ function Lancamentos() {
     if (sort === "amount") arr.sort((a, b) => Number(b.amount) - Number(a.amount));
     return arr;
   }, [list, quick, sort, monthFilter]);
-
-  // ---- Paginação ----
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = useMemo(
-    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [filtered, page],
-  );
-
-  // Reseta página ao mudar filtros
-  useEffect(() => { setPage(1); }, [quick, sort, monthFilter]);
 
   // Opções do seletor de mês (12 meses centrados em hoje)
   const monthOptions = useMemo(() => {
@@ -497,24 +485,11 @@ function Lancamentos() {
         ) : filtered.length === 0 ? (
           <Card className="rounded-2xl"><CardContent className="p-6 text-sm text-muted-foreground">Nenhum lançamento encontrado.</CardContent></Card>
         ) : (
-          <>
-            <div className={view === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
-              {paginated.map((t) => (
-                <TxRow key={t.id} t={t} onToggle={() => toggleStatus(t)} onDelete={() => remove(t.id)} />
-              ))}
-            </div>
-
-            {/* PAGINAÇÃO */}
-            {totalPages > 1 && (
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                total={filtered.length}
-                pageSize={PAGE_SIZE}
-                onChange={setPage}
-              />
-            )}
-          </>
+          <div className={view === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
+            {filtered.map((t) => (
+              <TxRow key={t.id} t={t} onToggle={() => toggleStatus(t)} onDelete={() => remove(t.id)} />
+            ))}
+          </div>
         )}
       </section>
 
@@ -668,82 +643,4 @@ function relativeLabel(iso: string) {
   }
   if (diff < 0) return "Futuro";
   return "";
-}
-
-function Pagination({
-  page, totalPages, total, pageSize, onChange,
-}: {
-  page: number; totalPages: number; total: number; pageSize: number; onChange: (p: number) => void;
-}) {
-  // Gera até 7 números de página com reticências
-  const pages: (number | "...")[] = [];
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (page > 3) pages.push("...");
-    const start = Math.max(2, page - 1);
-    const end   = Math.min(totalPages - 1, page + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (page < totalPages - 2) pages.push("...");
-    pages.push(totalPages);
-  }
-
-  const from = (page - 1) * pageSize + 1;
-  const to   = Math.min(page * pageSize, total);
-
-  return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-      <p className="text-sm text-muted-foreground">
-        Exibindo <span className="font-medium text-foreground">{from}–{to}</span> de{" "}
-        <span className="font-medium text-foreground">{total}</span> lançamentos
-      </p>
-
-      <div className="inline-flex items-center gap-1">
-        {/* Anterior */}
-        <button
-          type="button"
-          onClick={() => onChange(page - 1)}
-          disabled={page === 1}
-          className="grid place-items-center size-9 rounded-xl border bg-card text-sm font-medium
-            hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-
-        {/* Números */}
-        {pages.map((p, i) =>
-          p === "..." ? (
-            <span key={`ellipsis-${i}`} className="grid place-items-center size-9 text-sm text-muted-foreground">
-              …
-            </span>
-          ) : (
-            <button
-              key={p}
-              type="button"
-              onClick={() => onChange(p)}
-              className={`grid place-items-center size-9 rounded-xl border text-sm font-medium transition-colors ${
-                p === page
-                  ? "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-600/30"
-                  : "bg-card hover:bg-accent"
-              }`}
-            >
-              {p}
-            </button>
-          )
-        )}
-
-        {/* Próximo */}
-        <button
-          type="button"
-          onClick={() => onChange(page + 1)}
-          disabled={page === totalPages}
-          className="grid place-items-center size-9 rounded-xl border bg-card text-sm font-medium
-            hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="size-4" />
-        </button>
-      </div>
-    </div>
-  );
 }
