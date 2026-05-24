@@ -664,6 +664,47 @@ function Dashboard() {
         </Card>
       </div>
 
+      {/* Minhas contas (dados da aba Contas) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Wallet className="size-4 text-emerald-600" /> Minhas contas
+          </CardTitle>
+          <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
+            <a href="/contas">Gerenciar</a>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {visibleAccounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. <a href="/contas" className="text-primary underline">Cadastrar agora</a>.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleAccounts.map((a) => (
+                <div key={a.id} className="rounded-xl border bg-card p-3 flex items-center gap-3 hover:shadow-sm transition">
+                  <div className="size-10 rounded-lg grid place-items-center bg-emerald-500/10 text-emerald-700 shrink-0">
+                    <Wallet className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-muted-foreground truncate">{a.bank ?? a.type} · {a.titular ?? "—"}</div>
+                    <div className="font-medium text-sm truncate">{a.name}</div>
+                    <div className={`text-base font-bold ${Number(a.balance) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+                      {formatBRL(Number(a.balance))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-xl border border-dashed bg-muted/30 p-3 flex flex-col justify-center">
+                <div className="text-xs text-muted-foreground">Saldo total das contas</div>
+                <div className={`text-xl font-bold ${totalContas >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+                  {formatBRL(totalContas)}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
       <DetailDialog
         kind={detailKind}
         onClose={() => setDetailKind(null)}
