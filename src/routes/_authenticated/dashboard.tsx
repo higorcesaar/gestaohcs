@@ -36,7 +36,8 @@ interface Tx {
   card_id: string | null;
   status: string;
 }
-interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; }
+interface CardRow { id: string; name: string; bank: string; titular: string | null; closing_day: number; due_day: number; credit_limit: number; }
+interface Account { id: string; name: string; bank: string | null; type: string; balance: number; titular: string | null; }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
 const PIE_COLORS = [
@@ -54,6 +55,7 @@ function Dashboard() {
   const [nextTx, setNextTx] = useState<Tx[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [detailKind, setDetailKind] = useState<string | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const [defaultApplied, setDefaultApplied] = useState(false);
@@ -103,8 +105,15 @@ function Dashboard() {
     qn.then(({ data }) => setNextTx((data ?? []) as Tx[]));
 
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
-    supabase.from("cards").select("id, name, bank, titular, closing_day, due_day").then(({ data }) => setCards((data ?? []) as CardRow[]));
+    supabase.from("cards").select("id, name, bank, titular, closing_day, due_day, credit_limit").then(({ data }) => setCards((data ?? []) as CardRow[]));
+    supabase.from("accounts").select("id, name, bank, type, balance, titular").then(({ data }) => setAccounts((data ?? []) as Account[]));
   }, [year, month, titular]);
+
+  const visibleAccounts = useMemo(
+    () => accounts.filter((a) => titular === "all" || !a.titular || a.titular === titular),
+    [accounts, titular],
+  );
+  const totalContas = useMemo(() => visibleAccounts.reduce((s, a) => s + Number(a.balance), 0), [visibleAccounts]);
 
   const visibleCards = useMemo(
     () => cards.filter((c) => titular === "all" || !c.titular || c.titular === titular),
@@ -619,8 +628,9 @@ function Dashboard() {
               <p className="text-sm text-muted-foreground">Nenhum cartão cadastrado.</p>
             ) : cardTotals.slice(0, 3).map((c) => {
               const brand = BANK_BRAND[c.card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
-              const limit = 2000; // placeholder visual
-              const pct = Math.min(100, Math.round((c.total / limit) * 100));
+              const limit = Number(c.card.credit_limit) || 0;
+              const pct = limit > 0 ? Math.min(100, Math.round((c.total / limit) * 100)) : 0;
+              const disponivel = Math.max(0, limit - c.total);
               return (
                 <button key={c.card.id} onClick={() => setDetailCardId(c.card.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40">
                   <div className="size-9 rounded-lg grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: brand.gradient }}>
@@ -631,11 +641,15 @@ function Dashboard() {
                       <span className="font-medium truncate">{c.card.bank} - {c.card.titular ?? c.card.name}</span>
                       <span className="font-semibold">{formatBRL(c.total)}</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Limite: {formatBRL(limit)} · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {limit > 0
+                        ? <>Limite: {formatBRL(limit)} · Disp: {formatBRL(disponivel)} · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>
+                        : <>Sem limite cadastrado · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>}
+                    </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 80 ? "oklch(0.62 0.18 25)" : "oklch(0.6 0.12 150)" }} />
                     </div>
-                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{pct}% utilizado</div>
+                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado` : "—"}</div>
                   </div>
                 </button>
               );
@@ -649,6 +663,47 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Minhas contas (dados da aba Contas) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Wallet className="size-4 text-emerald-600" /> Minhas contas
+          </CardTitle>
+          <Button variant="ghost" size="sm" className="text-xs h-7" asChild>
+            <a href="/contas">Gerenciar</a>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {visibleAccounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. <a href="/contas" className="text-primary underline">Cadastrar agora</a>.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleAccounts.map((a) => (
+                <div key={a.id} className="rounded-xl border bg-card p-3 flex items-center gap-3 hover:shadow-sm transition">
+                  <div className="size-10 rounded-lg grid place-items-center bg-emerald-500/10 text-emerald-700 shrink-0">
+                    <Wallet className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs text-muted-foreground truncate">{a.bank ?? a.type} · {a.titular ?? "—"}</div>
+                    <div className="font-medium text-sm truncate">{a.name}</div>
+                    <div className={`text-base font-bold ${Number(a.balance) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+                      {formatBRL(Number(a.balance))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-xl border border-dashed bg-muted/30 p-3 flex flex-col justify-center">
+                <div className="text-xs text-muted-foreground">Saldo total das contas</div>
+                <div className={`text-xl font-bold ${totalContas >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
+                  {formatBRL(totalContas)}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       <DetailDialog
         kind={detailKind}
