@@ -816,6 +816,15 @@ function PaidPendingRow({ paid, pending }: { paid: number; pending: number }) {
   );
 }
 
+const BANK_SHORT: Record<string, string> = {
+  NUBANK: "NU", INTER: "INTER", ITAU: "ITAU", BRADESCO: "BRAD", SANTANDER: "SAN",
+  CAIXA: "CEF", "BANCO DO BRASIL": "BB", BB: "BB", C6: "C6", XP: "XP", PICPAY: "PIC",
+};
+function bankShort(bank: string): string {
+  const k = (bank || "").toUpperCase().trim();
+  return BANK_SHORT[k] ?? k.slice(0, 4);
+}
+
 const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
   NUBANK: { gradient: "linear-gradient(135deg, #8a05be 0%, #5b0091 100%)", border: "#8a05be" },
   INTER: { gradient: "linear-gradient(135deg, #ff7a00 0%, #cc5800 100%)", border: "#ff7a00" },
