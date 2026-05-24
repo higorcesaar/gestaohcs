@@ -647,12 +647,13 @@ function Dashboard() {
             ) : cardTotals.slice(0, 3).map((c) => {
               const brand = BANK_BRAND[c.card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
               const limit = Number(c.card.credit_limit) || 0;
-              const pct = limit > 0 ? Math.min(100, Math.round((c.total / limit) * 100)) : 0;
-              const disponivel = Math.max(0, limit - c.total);
+              const used = c.openTotal;
+              const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              const disponivel = Math.max(0, limit - used);
               return (
                 <button key={c.card.id} onClick={() => setDetailCardId(c.card.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40">
                   <div className="size-9 rounded-lg grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: brand.gradient }}>
-                    {c.card.bank.slice(0, 4)}
+                    {bankShort(c.card.bank)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between text-xs">
@@ -661,13 +662,13 @@ function Dashboard() {
                     </div>
                     <div className="text-[10px] text-muted-foreground">
                       {limit > 0
-                        ? <>Limite: {formatBRL(limit)} · Disp: {formatBRL(disponivel)} · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>
+                        ? <>Limite: {formatBRL(limit)} · Usado: {formatBRL(used)} · Disp: {formatBRL(disponivel)}</>
                         : <>Sem limite cadastrado · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>}
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 80 ? "oklch(0.62 0.18 25)" : "oklch(0.6 0.12 150)" }} />
                     </div>
-                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado` : "—"}</div>
+                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado · fatura atual ${formatBRL(c.total)}` : "—"}</div>
                   </div>
                 </button>
               );
