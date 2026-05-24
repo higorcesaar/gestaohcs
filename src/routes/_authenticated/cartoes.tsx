@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/cartoes")({
 interface CardRow {
   id: string; name: string; bank: string; closing_day: number; due_day: number; titular: string | null;
   dias_antecedencia_fechamento: number;
+  credit_limit: number;
 }
 
 function Cartoes() {
@@ -34,6 +35,7 @@ function Cartoes() {
   const [dueDay, setDueDay] = useState("");
   const [diasAntec, setDiasAntec] = useState("7");
   const [titular, setTitular] = useState("");
+  const [creditLimit, setCreditLimit] = useState("");
 
   async function load() {
     const { data } = await supabase.from("cards").select("*").order("name");
@@ -55,11 +57,20 @@ function Cartoes() {
       user_id: user.id, name: name.trim(), bank, closing_day: cd, due_day: dd,
       dias_antecedencia_fechamento: da,
       titular: titular || null,
+      credit_limit: Number(creditLimit) || 0,
     });
     if (error) return toast.error(error.message);
     toast.success("Cartão cadastrado");
-    setName(""); setClosingDay(""); setDueDay(""); setDiasAntec("7"); setTitular("");
+    setName(""); setClosingDay(""); setDueDay(""); setDiasAntec("7"); setTitular(""); setCreditLimit("");
     load();
+  }
+
+  async function updateLimit(id: string, value: string) {
+    const v = Number(value) || 0;
+    const { error } = await supabase.from("cards").update({ credit_limit: v }).eq("id", id);
+    if (error) return toast.error(error.message);
+    setList((prev) => prev.map((c) => c.id === id ? { ...c, credit_limit: v } : c));
+    toast.success("Limite atualizado");
   }
 
   async function remove(id: string) {
@@ -114,6 +125,10 @@ function Cartoes() {
               <Input type="number" min={1} max={28} value={diasAntec} onChange={(e) => setDiasAntec(e.target.value)} placeholder="7" />
               <p className="text-[11px] text-muted-foreground">Distância em dias entre vencimento e fechamento (Inter = 7).</p>
             </div>
+            <div className="space-y-1.5">
+              <Label>Limite de crédito (R$)</Label>
+              <Input type="number" min={0} step="0.01" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="Ex: 5000" />
+            </div>
             <div className="flex items-end">
               <Button type="submit" className="w-full">Cadastrar</Button>
             </div>
@@ -135,6 +150,7 @@ function Cartoes() {
                   <TableHead>Titular</TableHead>
                   <TableHead>Fechamento</TableHead>
                   <TableHead>Vencimento</TableHead>
+                  <TableHead className="text-right">Limite (R$)</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -146,6 +162,18 @@ function Cartoes() {
                     <TableCell>{c.titular ?? "—"}</TableCell>
                     <TableCell>Dia {c.closing_day}</TableCell>
                     <TableCell>Dia {c.due_day}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        defaultValue={Number(c.credit_limit) || 0}
+                        onBlur={(e) => {
+                          if (Number(e.target.value) !== Number(c.credit_limit)) updateLimit(c.id, e.target.value);
+                        }}
+                        className="h-8 w-32 ml-auto text-right"
+                      />
+                    </TableCell>
                     <TableCell>
                       <Button size="icon" variant="ghost" onClick={() => remove(c.id)}>
                         <Trash2 className="size-4 text-destructive" />
