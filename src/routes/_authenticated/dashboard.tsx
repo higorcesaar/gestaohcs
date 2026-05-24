@@ -119,15 +119,33 @@ function Dashboard() {
     () => cards.filter((c) => titular === "all" || !c.titular || c.titular === titular),
     [cards, titular],
   );
+  const [cardOpenTotals, setCardOpenTotals] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let q = supabase.from("transactions")
+      .select("card_id, amount, titular, payment_method, status")
+      .eq("payment_method", "Crédito")
+      .neq("status", "pago");
+    q = applyTitular(q, titular);
+    q.then(({ data }) => {
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((t: { card_id: string | null; amount: number | string }) => {
+        if (!t.card_id) return;
+        map[t.card_id] = (map[t.card_id] ?? 0) + Number(t.amount);
+      });
+      setCardOpenTotals(map);
+    });
+  }, [titular, tx]);
+
   const cardTotals = useMemo(() => {
     return visibleCards.map((c) => {
       const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
       const total = items.reduce((s, t) => s + Number(t.amount), 0);
       const paidCount = items.filter((t) => t.status === "pago").length;
       const allPaid = items.length > 0 && paidCount === items.length;
-      return { card: c, total, count: items.length, paidCount, allPaid, items };
+      const openTotal = cardOpenTotals[c.id] ?? 0;
+      return { card: c, total, openTotal, count: items.length, paidCount, allPaid, items };
     });
-  }, [visibleCards, tx]);
+  }, [visibleCards, tx, cardOpenTotals]);
 
   async function toggleCardStatus(cardId: string, markAs: "pago" | "pendente") {
     const target = cardTotals.find((c) => c.card.id === cardId);
@@ -629,12 +647,13 @@ function Dashboard() {
             ) : cardTotals.slice(0, 3).map((c) => {
               const brand = BANK_BRAND[c.card.bank.toUpperCase()] ?? BANK_BRAND.DEFAULT;
               const limit = Number(c.card.credit_limit) || 0;
-              const pct = limit > 0 ? Math.min(100, Math.round((c.total / limit) * 100)) : 0;
-              const disponivel = Math.max(0, limit - c.total);
+              const used = c.openTotal;
+              const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+              const disponivel = Math.max(0, limit - used);
               return (
                 <button key={c.card.id} onClick={() => setDetailCardId(c.card.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40">
                   <div className="size-9 rounded-lg grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: brand.gradient }}>
-                    {c.card.bank.slice(0, 4)}
+                    {bankShort(c.card.bank)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between text-xs">
@@ -643,13 +662,13 @@ function Dashboard() {
                     </div>
                     <div className="text-[10px] text-muted-foreground">
                       {limit > 0
-                        ? <>Limite: {formatBRL(limit)} · Disp: {formatBRL(disponivel)} · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>
+                        ? <>Limite: {formatBRL(limit)} · Usado: {formatBRL(used)} · Disp: {formatBRL(disponivel)}</>
                         : <>Sem limite cadastrado · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>}
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 80 ? "oklch(0.62 0.18 25)" : "oklch(0.6 0.12 150)" }} />
                     </div>
-                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado` : "—"}</div>
+                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado · fatura atual ${formatBRL(c.total)}` : "—"}</div>
                   </div>
                 </button>
               );
@@ -795,6 +814,15 @@ function PaidPendingRow({ paid, pending }: { paid: number; pending: number }) {
       </span>
     </div>
   );
+}
+
+const BANK_SHORT: Record<string, string> = {
+  NUBANK: "NU", INTER: "INTER", ITAU: "ITAU", BRADESCO: "BRAD", SANTANDER: "SAN",
+  CAIXA: "CEF", "BANCO DO BRASIL": "BB", BB: "BB", C6: "C6", XP: "XP", PICPAY: "PIC",
+};
+function bankShort(bank: string): string {
+  const k = (bank || "").toUpperCase().trim();
+  return BANK_SHORT[k] ?? k.slice(0, 4);
 }
 
 const BANK_BRAND: Record<string, { gradient: string; border: string }> = {
