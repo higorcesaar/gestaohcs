@@ -119,15 +119,33 @@ function Dashboard() {
     () => cards.filter((c) => titular === "all" || !c.titular || c.titular === titular),
     [cards, titular],
   );
+  const [cardOpenTotals, setCardOpenTotals] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let q = supabase.from("transactions")
+      .select("card_id, amount, titular, payment_method, status")
+      .eq("payment_method", "Crédito")
+      .neq("status", "pago");
+    q = applyTitular(q, titular);
+    q.then(({ data }) => {
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((t: { card_id: string | null; amount: number | string }) => {
+        if (!t.card_id) return;
+        map[t.card_id] = (map[t.card_id] ?? 0) + Number(t.amount);
+      });
+      setCardOpenTotals(map);
+    });
+  }, [titular, tx]);
+
   const cardTotals = useMemo(() => {
     return visibleCards.map((c) => {
       const items = tx.filter((t) => t.payment_method === "Crédito" && t.card_id === c.id);
       const total = items.reduce((s, t) => s + Number(t.amount), 0);
       const paidCount = items.filter((t) => t.status === "pago").length;
       const allPaid = items.length > 0 && paidCount === items.length;
-      return { card: c, total, count: items.length, paidCount, allPaid, items };
+      const openTotal = cardOpenTotals[c.id] ?? 0;
+      return { card: c, total, openTotal, count: items.length, paidCount, allPaid, items };
     });
-  }, [visibleCards, tx]);
+  }, [visibleCards, tx, cardOpenTotals]);
 
   async function toggleCardStatus(cardId: string, markAs: "pago" | "pendente") {
     const target = cardTotals.find((c) => c.card.id === cardId);
