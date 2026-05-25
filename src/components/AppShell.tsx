@@ -8,6 +8,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useTitular } from "@/hooks/use-titular";
+import { usePageHeader } from "@/hooks/use-page-header";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
