@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   component: UsuariosPage,
@@ -128,12 +129,17 @@ function UsuariosPage() {
     } catch (e) { toast.error((e as Error).message); }
   }
 
+  useSetPageHeader(
+    () => ({
+      title: "Usuários",
+      subtitle: "Gerencie quem tem acesso ao sistema.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-semibold">Usuários</h1>
-        <p className="text-muted-foreground">Gerencie quem tem acesso ao sistema.</p>
-      </header>
+
 
       <Card>
         <CardHeader>

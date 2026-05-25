@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { formatBRL, KINDS } from "@/lib/finance-constants";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   component: Relatorios,
@@ -46,15 +47,20 @@ function Relatorios() {
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [tx]);
 
+  useSetPageHeader(
+    () => ({
+      title: "Relatórios",
+      subtitle: "Visão mensal por tipo e categoria (competência).",
+      actions: (
+        <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+      ),
+    }),
+    [year, month]
+  );
+
   return (
     <div className="space-y-8">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold">Relatórios</h1>
-          <p className="text-muted-foreground">Visão mensal por tipo e categoria (competência).</p>
-        </div>
-        <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-      </header>
+
 
       <div className="grid gap-4 md:grid-cols-4">
         {KINDS.map((k) => (

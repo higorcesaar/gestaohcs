@@ -22,6 +22,7 @@ import { formatBRL } from "@/lib/finance-constants";
 import { useAuth } from "@/hooks/use-auth";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { MonthSelector } from "./relatorios";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 import { toast } from "sonner";
 import {
   Pencil, TrendingUp, AlertTriangle, CheckCircle2, Lightbulb,
@@ -271,25 +272,32 @@ function Orcamentos() {
     return list;
   }, [tableRows]);
 
-  return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-3">
-            <span className="inline-grid place-items-center size-11 rounded-2xl premium-chip">
-              <PiggyBank className="size-6 text-primary" />
-            </span>
-            <span className="text-gradient-primary">Gestão Orçamentária</span>
-          </h1>
-          <p className="text-muted-foreground capitalize mt-1">{monthLabel}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setEditOpen(true)} className="gap-2">
+  useSetPageHeader(
+    () => ({
+      title: (
+        <span className="flex items-center gap-2">
+          <span className="inline-grid place-items-center size-7 rounded-lg premium-chip">
+            <PiggyBank className="size-4 text-primary" />
+          </span>
+          <span className="text-gradient-primary">Gestão Orçamentária</span>
+        </span>
+      ),
+      subtitle: <span className="capitalize">{monthLabel}</span>,
+      actions: (
+        <>
+          <Button size="sm" onClick={() => setEditOpen(true)} className="gap-2">
             <Pencil className="size-4" /> Editar planejamento
           </Button>
           <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-        </div>
-      </header>
+        </>
+      ),
+    }),
+    [monthLabel, year, month]
+  );
+
+  return (
+    <div className="space-y-6">
+
 
       {/* Resumo top */}
       <Card>

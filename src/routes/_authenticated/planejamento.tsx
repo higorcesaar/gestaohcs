@@ -2,18 +2,24 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarRange, PiggyBank, Target, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/planejamento")({
   component: Planejamento,
 });
 
 function Planejamento() {
+  useSetPageHeader(
+    () => ({
+      title: <span className="flex items-center gap-2"><CalendarRange className="size-5 text-primary" /> Planejamento</span>,
+      subtitle: "Organize seus próximos passos financeiros.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-semibold flex items-center gap-3"><CalendarRange className="size-7 text-primary" /> Planejamento</h1>
-        <p className="text-muted-foreground">Organize seus próximos passos financeiros.</p>
-      </header>
+
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

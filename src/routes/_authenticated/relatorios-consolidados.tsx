@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { formatBRL } from "@/lib/finance-constants";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/relatorios-consolidados")({
   component: Consolidados,
@@ -72,12 +73,17 @@ function Consolidados() {
     return months;
   }, [tx, year, currentMonth]);
 
+  useSetPageHeader(
+    () => ({
+      title: "Relatórios Consolidados",
+      subtitle: `Visão anual ${year} (com projeção dos meses futuros).`,
+    }),
+    [year]
+  );
+
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-semibold">Relatórios Consolidados</h1>
-        <p className="text-muted-foreground">Visão anual {year} (com projeção dos meses futuros).</p>
-      </header>
+
 
       <Card>
         <CardHeader><CardTitle className="text-base">Comparativo mensal</CardTitle></CardHeader>

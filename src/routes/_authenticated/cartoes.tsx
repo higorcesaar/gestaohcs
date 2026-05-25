@@ -15,6 +15,7 @@ import {
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BANKS, TITULARES } from "@/lib/finance-constants";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/cartoes")({
   component: Cartoes,
@@ -79,12 +80,17 @@ function Cartoes() {
     else { toast.success("Removido"); load(); }
   }
 
+  useSetPageHeader(
+    () => ({
+      title: "Cartões",
+      subtitle: "Cadastre cartões com dia de fechamento e vencimento para automatizar a competência das compras no crédito.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-semibold">Cartões</h1>
-        <p className="text-muted-foreground">Cadastre cartões com dia de fechamento e vencimento para automatizar a competência das compras no crédito.</p>
-      </header>
+
 
       <Card>
         <CardHeader><CardTitle className="text-base">Novo cartão</CardTitle></CardHeader>

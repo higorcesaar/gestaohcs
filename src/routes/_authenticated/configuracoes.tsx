@@ -10,6 +10,7 @@ import { Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { TITULARES } from "@/lib/finance-constants";
 import { toast } from "sonner";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: Configuracoes,
@@ -41,12 +42,17 @@ function Configuracoes() {
     toast.success("Preferências salvas");
   }
 
+  useSetPageHeader(
+    () => ({
+      title: <span className="flex items-center gap-2"><Settings className="size-5 text-primary" /> Configurações</span>,
+      subtitle: "Personalize sua experiência.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-semibold flex items-center gap-3"><Settings className="size-7 text-primary" /> Configurações</h1>
-        <p className="text-muted-foreground">Personalize sua experiência.</p>
-      </header>
+
 
       <Card>
         <CardHeader><CardTitle>Preferências</CardTitle></CardHeader>

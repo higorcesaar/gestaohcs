@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { KINDS } from "@/lib/finance-constants";
 import { useCategories } from "@/hooks/use-categories";
 import { Badge } from "@/components/ui/badge";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/categorias")({
   component: Categorias,
@@ -45,12 +46,17 @@ function Categorias() {
     ...k, items: list.filter((c) => c.kind === k.value),
   }));
 
+  useSetPageHeader(
+    () => ({
+      title: "Categorias",
+      subtitle: "Gerencie as categorias usadas nos lançamentos.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-semibold">Categorias</h1>
-        <p className="text-muted-foreground">Gerencie as categorias usadas nos lançamentos.</p>
-      </header>
+
 
       <Card>
         <CardHeader><CardTitle className="text-base">Nova categoria</CardTitle></CardHeader>
