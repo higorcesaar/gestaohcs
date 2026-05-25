@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Database, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/backup")({
   component: Backup,
@@ -70,12 +71,17 @@ function Backup() {
     } finally { setBusy(false); }
   }
 
+  useSetPageHeader(
+    () => ({
+      title: <span className="flex items-center gap-2"><Database className="size-5 text-primary" /> Backup e Dados</span>,
+      subtitle: "Exporte ou restaure todos os seus dados.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-semibold flex items-center gap-3"><Database className="size-7 text-primary" /> Backup e Dados</h1>
-        <p className="text-muted-foreground">Exporte ou restaure todos os seus dados.</p>
-      </header>
+
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

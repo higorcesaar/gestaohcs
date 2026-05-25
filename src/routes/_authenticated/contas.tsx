@@ -17,6 +17,7 @@ import { formatBRL, BANKS, TITULARES } from "@/lib/finance-constants";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { Landmark, Plus, Trash2 } from "lucide-react";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/contas")({
   component: Contas,
@@ -57,15 +58,20 @@ function Contas() {
 
   const total = items.reduce((s, a) => s + Number(a.balance), 0);
 
+  useSetPageHeader(
+    () => ({
+      title: <span className="flex items-center gap-2"><Landmark className="size-5 text-primary" /> Contas</span>,
+      subtitle: <>Saldo total: <span className="font-medium text-foreground">{formatBRL(total)}</span></>,
+      actions: (
+        <Button size="sm" onClick={() => setOpen(true)} className="gap-2"><Plus className="size-4" /> Nova conta</Button>
+      ),
+    }),
+    [total]
+  );
+
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold flex items-center gap-3"><Landmark className="size-7 text-primary" /> Contas</h1>
-          <p className="text-muted-foreground">Saldo total: <span className="font-medium text-foreground">{formatBRL(total)}</span></p>
-        </div>
-        <Button onClick={() => setOpen(true)} className="gap-2"><Plus className="size-4" /> Nova conta</Button>
-      </header>
+
 
       <Card>
         <CardHeader><CardTitle>Minhas contas</CardTitle></CardHeader>

@@ -20,6 +20,7 @@ import { I3D, iconForCategory } from "@/lib/category-icons";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -284,22 +285,21 @@ function Dashboard() {
   const totalDespesas = fixos + variaveis + parcelas + flowBuckets[3].value;
   const fluxoMax = Math.max(1, ...flowBuckets.map((b) => b.value));
 
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground capitalize text-sm mt-0.5">
-            {monthLabel}
-            {currentClosed && (
-              <Badge variant="secondary" className="ml-2 gap-1 align-middle">
-                <Lock className="size-3" /> Fatura paga
-              </Badge>
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+  useSetPageHeader(
+    () => ({
+      title: "Dashboard",
+      subtitle: (
+        <span className="capitalize">
+          {monthLabel}
+          {currentClosed && (
+            <Badge variant="secondary" className="ml-2 gap-1 align-middle">
+              <Lock className="size-3" /> Fatura paga
+            </Badge>
+          )}
+        </span>
+      ),
+      actions: (
+        <>
           <Button
             type="button"
             size="sm"
@@ -311,8 +311,15 @@ function Dashboard() {
             {currentClosed ? "Reabrir" : "Marcar leitura de"} <span className="capitalize">{monthLabelShort}</span> {currentClosed ? "" : "como paga"}
           </Button>
           <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
-        </div>
-      </header>
+        </>
+      ),
+    }),
+    [monthLabel, monthLabelShort, currentClosed, currentMonthIso, year, month]
+  );
+
+  return (
+    <div className="space-y-5">
+
 
       {/* BIG SALDO HERO */}
       <Card className="relative overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-50/60 via-background to-background dark:from-emerald-950/20">

@@ -8,6 +8,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useTitular } from "@/hooks/use-titular";
+import { usePageHeader } from "@/hooks/use-page-header";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -23,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { titular, setTitular } = useTitular();
+  const pageHeader = usePageHeader();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const groups: NavGroup[] = [
@@ -124,7 +126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-auto min-w-0">
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-background/85 backdrop-blur border-b border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden">
@@ -144,15 +146,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="font-semibold text-sm truncate">Cesar Finanças</div>
             </div>
 
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden sm:inline">Titular:</span>
-              <Select value={titular} onValueChange={(v) => setTitular(v as "all" | "Higor" | "Mirelly")}>
-                <SelectTrigger className="w-[130px] sm:w-[160px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {TITULARES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            {/* Page title (left) */}
+            {(pageHeader.title || pageHeader.subtitle) && (
+              <div className="min-w-0 flex-1 order-3 lg:order-none basis-full lg:basis-auto">
+                {pageHeader.title && (
+                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight leading-tight truncate">
+                    {pageHeader.title}
+                  </h1>
+                )}
+                {pageHeader.subtitle && (
+                  <div className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
+                    {pageHeader.subtitle}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Right cluster: page actions + Titular */}
+            <div className="ml-auto flex flex-wrap items-center gap-2 order-2 lg:order-none">
+              {pageHeader.actions}
+              <div className="flex items-center gap-2 pl-2 lg:border-l lg:border-border lg:ml-1">
+                <span className="text-xs text-muted-foreground hidden sm:inline">Titular:</span>
+                <Select value={titular} onValueChange={(v) => setTitular(v as "all" | "Higor" | "Mirelly")}>
+                  <SelectTrigger className="w-[130px] sm:w-[160px] h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {TITULARES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -161,6 +183,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+
 
       <InstallPwaButton />
     </div>

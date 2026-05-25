@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/finance-constants";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/metas")({
   component: Metas,
@@ -57,12 +58,17 @@ function Metas() {
     else { toast.success("Removida"); load(); }
   }
 
+  useSetPageHeader(
+    () => ({
+      title: "Metas",
+      subtitle: "Acompanhe a evolução dos seus objetivos.",
+    }),
+    []
+  );
+
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-semibold">Metas</h1>
-        <p className="text-muted-foreground">Acompanhe a evolução dos seus objetivos.</p>
-      </header>
+
 
       <Card>
         <CardHeader><CardTitle className="text-base">Nova meta</CardTitle></CardHeader>

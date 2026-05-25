@@ -22,6 +22,7 @@ import {
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 import { iconForCategory } from "@/lib/category-icons";
 
 export const Route = createFileRoute("/_authenticated/lancamentos")({
@@ -243,17 +244,14 @@ function Lancamentos() {
     return opts;
   }, []);
 
-  return (
-    <div className="space-y-6 pb-24">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full mb-6 gap-2">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Lançamentos</h1>
-          <p className="text-sm text-muted-foreground">Registre e acompanhe todas as suas movimentações financeiras.</p>
-        </div>
-        <div className="flex items-center gap-3 self-end md:self-auto">
+  useSetPageHeader(
+    () => ({
+      title: "Lançamentos",
+      subtitle: "Registre e acompanhe todas as suas movimentações financeiras.",
+      actions: (
+        <>
           <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="h-11 w-[180px] rounded-xl bg-card">
+            <SelectTrigger className="h-9 w-[180px] rounded-xl bg-card">
               <Calendar className="size-4 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
@@ -263,12 +261,19 @@ function Lancamentos() {
               ))}
             </SelectContent>
           </Select>
-          <button className="relative grid place-items-center size-11 rounded-xl border bg-card hover:bg-accent transition-colors">
-            <Bell className="size-5" />
-            <span className="absolute top-2.5 right-2.5 size-2 rounded-full bg-emerald-500" />
+          <button className="relative grid place-items-center size-9 rounded-xl border bg-card hover:bg-accent transition-colors">
+            <Bell className="size-4" />
+            <span className="absolute top-2 right-2 size-2 rounded-full bg-emerald-500" />
           </button>
-        </div>
-      </div>
+        </>
+      ),
+    }),
+    [monthFilter, monthOptions]
+  );
+
+  return (
+    <div className="space-y-6 pb-24">
+
 
       {/* STATS */}
       <div className="grid gap-4 md:grid-cols-3">
