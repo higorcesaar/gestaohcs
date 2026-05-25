@@ -246,12 +246,12 @@ function Lancamentos() {
   return (
     <div className="space-y-6 pb-24">
       {/* HEADER */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full mb-6 gap-2">
         <div>
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">Lançamentos</h1>
-          <p className="text-muted-foreground mt-1">Registre e acompanhe todas as suas movimentações financeiras.</p>
+          <h1 className="text-3xl font-bold text-foreground">Lançamentos</h1>
+          <p className="text-sm text-muted-foreground">Registre e acompanhe todas as suas movimentações financeiras.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-end md:self-auto">
           <Select value={monthFilter} onValueChange={setMonthFilter}>
             <SelectTrigger className="h-11 w-[180px] rounded-xl bg-card">
               <Calendar className="size-4 text-muted-foreground" />
@@ -268,7 +268,7 @@ function Lancamentos() {
             <span className="absolute top-2.5 right-2.5 size-2 rounded-full bg-emerald-500" />
           </button>
         </div>
-      </header>
+      </div>
 
       {/* STATS */}
       <div className="grid gap-4 md:grid-cols-3">
