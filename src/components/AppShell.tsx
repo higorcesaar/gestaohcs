@@ -24,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { titular, setTitular } = useTitular();
+  const pageHeader = usePageHeader();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const groups: NavGroup[] = [
