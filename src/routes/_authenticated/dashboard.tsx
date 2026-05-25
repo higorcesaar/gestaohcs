@@ -20,6 +20,7 @@ import { I3D, iconForCategory } from "@/lib/category-icons";
 import { MonthSelector } from "./relatorios";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
