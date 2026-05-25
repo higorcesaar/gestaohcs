@@ -22,6 +22,7 @@ import {
 import { useCategories, ensureCategory } from "@/hooks/use-categories";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { useClosedMonths } from "@/hooks/use-closed-months";
+import { useSetPageHeader } from "@/hooks/use-page-header";
 import { iconForCategory } from "@/lib/category-icons";
 
 export const Route = createFileRoute("/_authenticated/lancamentos")({
