@@ -600,7 +600,7 @@ function EditableBudgetRow({
   row: BudgetRow;
   onSave: (next: { category: string; planned_amount: number; group_kind: GroupKind }) => void;
   onDelete: () => void;
-  statusBadge: (pct: number) => JSX.Element;
+  statusBadge: (pct: number) => React.ReactElement;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(row.category);
