@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -195,9 +195,32 @@ function Orcamentos() {
     load();
   }
 
+  /** Renomeia a categoria do orçamento sem mexer nas transações (parcelas etc.). */
+  async function renameCatBudget(oldCat: string, next: { category: string; planned_amount: number; group_kind: "necessidade" | "desejo" | "poupanca" }) {
+    if (!user) return;
+    const newName = next.category.trim();
+    if (!newName) return toast.error("Informe um nome de categoria");
+    if (newName === oldCat) {
+      return saveCatBudget({ category: oldCat, planned_amount: next.planned_amount, group_kind: next.group_kind });
+    }
+    const exists = catBudgets.find((c) => c.category.toLowerCase() === newName.toLowerCase());
+    if (exists) return toast.error("Já existe um orçamento com esse nome");
+    const { error: insErr } = await supabase.from("category_budgets").upsert({
+      user_id: user.id, competence_month: monthIso,
+      category: newName, planned_amount: next.planned_amount, group_kind: next.group_kind,
+    }, { onConflict: "user_id,competence_month,category" });
+    if (insErr) return toast.error(insErr.message);
+    const { error: delErr } = await supabase.from("category_budgets")
+      .delete().eq("competence_month", monthIso).eq("category", oldCat);
+    if (delErr) return toast.error(delErr.message);
+    toast.success("Categoria renomeada (parcelamentos preservados)");
+    load();
+  }
+
   async function deleteCatBudget(cat: string) {
     if (!user) return;
     await supabase.from("category_budgets").delete().eq("competence_month", monthIso).eq("category", cat);
+    toast.success("Orçamento removido (transações mantidas)");
     load();
   }
 
@@ -360,28 +383,13 @@ function Orcamentos() {
                   </TableCell></TableRow>
                 )}
                 {tableRows.map((r) => (
-                  <TableRow key={r.category}>
-                    <TableCell className="font-medium">{r.category}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        defaultValue={r.planned}
-                        className="h-8 w-28"
-                        onBlur={(e) => {
-                          const v = Number(e.target.value);
-                          if (v !== r.planned) saveCatBudget({ category: r.category, planned_amount: v, group_kind: r.group });
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{formatBRL(r.spent)}</TableCell>
-                    <TableCell><Progress value={Math.min(100, r.pct)} className={r.pct >= 100 ? "[&>div]:bg-destructive" : r.pct >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-600"} /></TableCell>
-                    <TableCell>{r.pct}%</TableCell>
-                    <TableCell className={r.rest < 0 ? "text-destructive font-medium" : ""}>{formatBRL(r.rest)}</TableCell>
-                    <TableCell>{statusBadge(r.pct)}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="ghost" onClick={() => deleteCatBudget(r.category)}>×</Button>
-                    </TableCell>
-                  </TableRow>
+                  <EditableBudgetRow
+                    key={r.category}
+                    row={r}
+                    onSave={(next) => renameCatBudget(r.category, next)}
+                    onDelete={() => deleteCatBudget(r.category)}
+                    statusBadge={statusBadge}
+                  />
                 ))}
                 {tableRows.length > 0 && (
                   <TableRow className="font-semibold bg-muted/30">
@@ -578,5 +586,95 @@ function Kpi({ label, value, sub, accent }: { label: string; value: string; sub:
       <div className={`text-2xl font-semibold ${color}`}>{value}</div>
       <div className="text-xs text-muted-foreground">{sub}</div>
     </div>
+  );
+}
+
+type GroupKind = "necessidade" | "desejo" | "poupanca";
+type BudgetRow = {
+  category: string; planned: number; spent: number; pct: number; rest: number; group: GroupKind;
+};
+
+function EditableBudgetRow({
+  row, onSave, onDelete, statusBadge,
+}: {
+  row: BudgetRow;
+  onSave: (next: { category: string; planned_amount: number; group_kind: GroupKind }) => void;
+  onDelete: () => void;
+  statusBadge: (pct: number) => React.ReactElement;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(row.category);
+  const [planned, setPlanned] = useState(String(row.planned));
+  const [group, setGroup] = useState<GroupKind>(row.group);
+
+  useEffect(() => {
+    if (!editing) { setName(row.category); setPlanned(String(row.planned)); setGroup(row.group); }
+  }, [row.category, row.planned, row.group, editing]);
+
+  function commit() {
+    onSave({ category: name.trim() || row.category, planned_amount: Number(planned) || 0, group_kind: group });
+    setEditing(false);
+  }
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        {editing ? (
+          <div className="flex flex-col gap-1">
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 w-40" />
+            <Select value={group} onValueChange={(v) => setGroup(v as GroupKind)}>
+              <SelectTrigger className="h-7 w-40 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="necessidade">Necessidade</SelectItem>
+                <SelectItem value="desejo">Desejo</SelectItem>
+                <SelectItem value="poupanca">Poupança</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            <span>{row.category}</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{row.group}</span>
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={editing ? planned : undefined}
+          defaultValue={editing ? undefined : row.planned}
+          onChange={editing ? (e) => setPlanned(e.target.value) : undefined}
+          onBlur={editing ? undefined : (e) => {
+            const v = Number(e.target.value);
+            if (v !== row.planned) onSave({ category: row.category, planned_amount: v, group_kind: row.group });
+          }}
+          className="h-8 w-28"
+        />
+      </TableCell>
+      <TableCell>{formatBRL(row.spent)}</TableCell>
+      <TableCell>
+        <Progress value={Math.min(100, row.pct)} className={row.pct >= 100 ? "[&>div]:bg-destructive" : row.pct >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-600"} />
+      </TableCell>
+      <TableCell>{row.pct}%</TableCell>
+      <TableCell className={row.rest < 0 ? "text-destructive font-medium" : ""}>{formatBRL(row.rest)}</TableCell>
+      <TableCell>{statusBadge(row.pct)}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1 justify-end">
+          {editing ? (
+            <>
+              <Button size="sm" variant="default" onClick={commit}>Salvar</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria">
+                <Pencil className="size-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">×</Button>
+            </>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
