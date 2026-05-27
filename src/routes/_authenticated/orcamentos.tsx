@@ -195,9 +195,32 @@ function Orcamentos() {
     load();
   }
 
+  /** Renomeia a categoria do orçamento sem mexer nas transações (parcelas etc.). */
+  async function renameCatBudget(oldCat: string, next: { category: string; planned_amount: number; group_kind: "necessidade" | "desejo" | "poupanca" }) {
+    if (!user) return;
+    const newName = next.category.trim();
+    if (!newName) return toast.error("Informe um nome de categoria");
+    if (newName === oldCat) {
+      return saveCatBudget({ category: oldCat, planned_amount: next.planned_amount, group_kind: next.group_kind });
+    }
+    const exists = catBudgets.find((c) => c.category.toLowerCase() === newName.toLowerCase());
+    if (exists) return toast.error("Já existe um orçamento com esse nome");
+    const { error: insErr } = await supabase.from("category_budgets").upsert({
+      user_id: user.id, competence_month: monthIso,
+      category: newName, planned_amount: next.planned_amount, group_kind: next.group_kind,
+    }, { onConflict: "user_id,competence_month,category" });
+    if (insErr) return toast.error(insErr.message);
+    const { error: delErr } = await supabase.from("category_budgets")
+      .delete().eq("competence_month", monthIso).eq("category", oldCat);
+    if (delErr) return toast.error(delErr.message);
+    toast.success("Categoria renomeada (parcelamentos preservados)");
+    load();
+  }
+
   async function deleteCatBudget(cat: string) {
     if (!user) return;
     await supabase.from("category_budgets").delete().eq("competence_month", monthIso).eq("category", cat);
+    toast.success("Orçamento removido (transações mantidas)");
     load();
   }
 
