@@ -26,7 +26,7 @@ import { useSetPageHeader } from "@/hooks/use-page-header";
 import { toast } from "sonner";
 import {
   Pencil, TrendingUp, AlertTriangle, CheckCircle2, Lightbulb,
-  Wallet, Plus, PiggyBank,
+  Wallet, Plus, PiggyBank, Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/orcamentos")({
@@ -220,6 +220,7 @@ function Orcamentos() {
 
   async function deleteCatBudget(cat: string) {
     if (!user) return;
+    if (!window.confirm(`Deseja realmente remover a categoria "${cat}" do seu orçamento? Suas transações e lançamentos reais NÃO serão apagados.`)) return;
     await supabase.from("category_budgets").delete().eq("competence_month", monthIso).eq("category", cat);
     toast.success("Orçamento removido (transações mantidas)");
     load();
@@ -770,7 +771,9 @@ function EditableBudgetRow({
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria">
                 <Pencil className="size-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">×</Button>
+              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">
+                <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+              </Button>
             </>
           )}
         </div>
