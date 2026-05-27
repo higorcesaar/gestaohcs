@@ -588,3 +588,93 @@ function Kpi({ label, value, sub, accent }: { label: string; value: string; sub:
     </div>
   );
 }
+
+type GroupKind = "necessidade" | "desejo" | "poupanca";
+type BudgetRow = {
+  category: string; planned: number; spent: number; pct: number; rest: number; group: GroupKind;
+};
+
+function EditableBudgetRow({
+  row, onSave, onDelete, statusBadge,
+}: {
+  row: BudgetRow;
+  onSave: (next: { category: string; planned_amount: number; group_kind: GroupKind }) => void;
+  onDelete: () => void;
+  statusBadge: (pct: number) => JSX.Element;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(row.category);
+  const [planned, setPlanned] = useState(String(row.planned));
+  const [group, setGroup] = useState<GroupKind>(row.group);
+
+  useEffect(() => {
+    if (!editing) { setName(row.category); setPlanned(String(row.planned)); setGroup(row.group); }
+  }, [row.category, row.planned, row.group, editing]);
+
+  function commit() {
+    onSave({ category: name.trim() || row.category, planned_amount: Number(planned) || 0, group_kind: group });
+    setEditing(false);
+  }
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        {editing ? (
+          <div className="flex flex-col gap-1">
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 w-40" />
+            <Select value={group} onValueChange={(v) => setGroup(v as GroupKind)}>
+              <SelectTrigger className="h-7 w-40 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="necessidade">Necessidade</SelectItem>
+                <SelectItem value="desejo">Desejo</SelectItem>
+                <SelectItem value="poupanca">Poupança</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            <span>{row.category}</span>
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{row.group}</span>
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          value={editing ? planned : undefined}
+          defaultValue={editing ? undefined : row.planned}
+          onChange={editing ? (e) => setPlanned(e.target.value) : undefined}
+          onBlur={editing ? undefined : (e) => {
+            const v = Number(e.target.value);
+            if (v !== row.planned) onSave({ category: row.category, planned_amount: v, group_kind: row.group });
+          }}
+          className="h-8 w-28"
+        />
+      </TableCell>
+      <TableCell>{formatBRL(row.spent)}</TableCell>
+      <TableCell>
+        <Progress value={Math.min(100, row.pct)} className={row.pct >= 100 ? "[&>div]:bg-destructive" : row.pct >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-600"} />
+      </TableCell>
+      <TableCell>{row.pct}%</TableCell>
+      <TableCell className={row.rest < 0 ? "text-destructive font-medium" : ""}>{formatBRL(row.rest)}</TableCell>
+      <TableCell>{statusBadge(row.pct)}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1 justify-end">
+          {editing ? (
+            <>
+              <Button size="sm" variant="default" onClick={commit}>Salvar</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria">
+                <Pencil className="size-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">×</Button>
+            </>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
