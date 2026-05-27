@@ -87,10 +87,14 @@ function Lancamentos() {
   const [quick, setQuick] = useState<QuickFilter>("todos");
   const [sort, setSort] = useState<"recent" | "old" | "amount">("recent");
   const [view, setView] = useState<"list" | "grid">("list");
+  const [visibleCount, setVisibleCount] = useState(5);
   const [monthFilter, setMonthFilter] = useState<string>(() => {
     const n = new Date();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`;
   });
+
+  // Reset paginação ao trocar filtro/ordem/mês
+  useEffect(() => { setVisibleCount(5); }, [quick, sort, monthFilter, view]);
 
   const { list: categories, reload: reloadCats } = useCategories(kind);
   const { closedMonths } = useClosedMonths();
