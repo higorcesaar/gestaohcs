@@ -383,28 +383,13 @@ function Orcamentos() {
                   </TableCell></TableRow>
                 )}
                 {tableRows.map((r) => (
-                  <TableRow key={r.category}>
-                    <TableCell className="font-medium">{r.category}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        defaultValue={r.planned}
-                        className="h-8 w-28"
-                        onBlur={(e) => {
-                          const v = Number(e.target.value);
-                          if (v !== r.planned) saveCatBudget({ category: r.category, planned_amount: v, group_kind: r.group });
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{formatBRL(r.spent)}</TableCell>
-                    <TableCell><Progress value={Math.min(100, r.pct)} className={r.pct >= 100 ? "[&>div]:bg-destructive" : r.pct >= 80 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-600"} /></TableCell>
-                    <TableCell>{r.pct}%</TableCell>
-                    <TableCell className={r.rest < 0 ? "text-destructive font-medium" : ""}>{formatBRL(r.rest)}</TableCell>
-                    <TableCell>{statusBadge(r.pct)}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="ghost" onClick={() => deleteCatBudget(r.category)}>×</Button>
-                    </TableCell>
-                  </TableRow>
+                  <EditableBudgetRow
+                    key={r.category}
+                    row={r}
+                    onSave={(next) => renameCatBudget(r.category, next)}
+                    onDelete={() => deleteCatBudget(r.category)}
+                    statusBadge={statusBadge}
+                  />
                 ))}
                 {tableRows.length > 0 && (
                   <TableRow className="font-semibold bg-muted/30">
