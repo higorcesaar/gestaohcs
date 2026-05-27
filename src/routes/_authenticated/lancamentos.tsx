@@ -465,8 +465,13 @@ function Lancamentos() {
 
       {/* HISTÓRICO */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">Histórico de lançamentos</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-xl font-semibold">Histórico de lançamentos</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {filtered.length} {filtered.length === 1 ? "registro" : "registros"} · mostrando {Math.min(visibleCount, filtered.length)}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <Select value={sort} onValueChange={(v) => setSort(v as any)}>
               <SelectTrigger className="h-9 rounded-lg bg-card w-[150px] text-sm"><SelectValue /></SelectTrigger>
@@ -478,11 +483,11 @@ function Lancamentos() {
             </Select>
             <div className="inline-flex rounded-lg border bg-card p-0.5">
               <button type="button" onClick={() => setView("grid")}
-                className={`grid place-items-center size-8 rounded-md transition-colors ${view === "grid" ? "bg-accent" : "hover:bg-accent/60"}`}>
+                className={`grid place-items-center size-8 rounded-md transition-all duration-200 ${view === "grid" ? "bg-emerald-600 text-white shadow-sm" : "hover:bg-accent/60"}`}>
                 <LayoutGrid className="size-4" />
               </button>
               <button type="button" onClick={() => setView("list")}
-                className={`grid place-items-center size-8 rounded-md transition-colors ${view === "list" ? "bg-emerald-600 text-white" : "hover:bg-accent/60"}`}>
+                className={`grid place-items-center size-8 rounded-md transition-all duration-200 ${view === "list" ? "bg-emerald-600 text-white shadow-sm" : "hover:bg-accent/60"}`}>
                 <ListIcon className="size-4" />
               </button>
             </div>
@@ -492,15 +497,46 @@ function Lancamentos() {
         {loading ? (
           <Card className="rounded-2xl"><CardContent className="p-6 text-sm text-muted-foreground">Carregando…</CardContent></Card>
         ) : filtered.length === 0 ? (
-          <Card className="rounded-2xl"><CardContent className="p-6 text-sm text-muted-foreground">Nenhum lançamento encontrado.</CardContent></Card>
+          <Card className="rounded-2xl"><CardContent className="p-10 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado.</CardContent></Card>
         ) : (
-          <div className={view === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-3"}>
-            {filtered.map((t) => (
-              <TxRow key={t.id} t={t} onToggle={() => toggleStatus(t)} onDelete={() => remove(t.id)} />
-            ))}
-          </div>
+          <>
+            <div className="rounded-2xl border bg-card/60 shadow-sm overflow-hidden">
+              {view === "list" && (
+                <div className="sticky top-0 z-10 grid grid-cols-12 gap-3 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/60 backdrop-blur border-b">
+                  <div className="col-span-5 sm:col-span-4 pl-14">Descrição</div>
+                  <div className="hidden sm:block sm:col-span-3">Pagamento</div>
+                  <div className="hidden md:block md:col-span-2">Data</div>
+                  <div className="hidden md:block md:col-span-1 text-center">Status</div>
+                  <div className="col-span-7 sm:col-span-2 text-right pr-10">Valor</div>
+                </div>
+              )}
+              <div className="max-h-[480px] overflow-y-auto overscroll-contain">
+                <div className={view === "grid" ? "grid gap-3 sm:grid-cols-2 p-3" : "divide-y divide-border/60"}>
+                  {filtered.slice(0, visibleCount).map((t) => (
+                    <TxRow key={t.id} t={t} view={view} onToggle={() => toggleStatus(t)} onDelete={() => remove(t.id)} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {visibleCount < filtered.length && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((n) => n + 10)}
+                  className="inline-flex items-center gap-2 h-10 px-5 rounded-full border bg-card text-sm font-medium hover:bg-accent hover:shadow-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  Ver mais
+                  <span className="text-xs text-muted-foreground">
+                    (+{Math.min(10, filtered.length - visibleCount)})
+                  </span>
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
+
 
       {/* FAB Novo */}
       <button
