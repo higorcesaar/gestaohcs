@@ -9,7 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Bell, Calendar, CreditCard, User, Filter, Plus, ChevronRight,
+  Bell, Calendar, CreditCard, User, Filter, Plus,
   ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Trash2,
   LayoutGrid, List as ListIcon,
 } from "lucide-react";
