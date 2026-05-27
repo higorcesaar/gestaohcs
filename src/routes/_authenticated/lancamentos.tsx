@@ -608,68 +608,108 @@ function Chip({
   );
 }
 
-function TxRow({ t, onToggle, onDelete }: { t: Tx; onToggle: () => void; onDelete: () => void }) {
+function TxRow({
+  t, view = "list", onToggle, onDelete,
+}: {
+  t: Tx; view?: "list" | "grid";
+  onToggle: () => void; onDelete: () => void;
+}) {
   const isReceita = t.kind === "receita";
   const isPago = t.status === "pago";
   const icon = iconForCategory(t.category);
   const dateLabel = formatDateBR(t.occurred_on);
   const rel = relativeLabel(t.occurred_on);
+  const KindIcon = isReceita ? ArrowUpRight : ArrowDownRight;
 
-  return (
-    <div className="group flex items-center gap-4 rounded-2xl border bg-card px-4 py-3 hover:shadow-sm transition-all">
-      <div className="grid place-items-center size-12 shrink-0 rounded-full bg-muted/60 overflow-hidden">
-        <img src={icon} alt="" className="size-9 object-contain" />
-      </div>
+  const wrapperCls = view === "grid"
+    ? "group flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 hover:shadow-sm hover:-translate-y-px transition-all duration-200"
+    : "group grid grid-cols-12 gap-3 items-center px-4 py-2.5 hover:bg-accent/40 transition-all duration-200";
 
-      <div className="min-w-0 flex-1 grid grid-cols-12 gap-3 items-center">
-        <div className="col-span-12 sm:col-span-4 min-w-0">
-          <p className="font-semibold truncate">{t.category}</p>
-          {t.description && <p className="text-xs text-muted-foreground truncate">{t.description}</p>}
+  if (view === "grid") {
+    return (
+      <div className={wrapperCls}>
+        <div className="grid place-items-center size-10 shrink-0 rounded-full bg-muted/60 overflow-hidden">
+          <img src={icon} alt="" className="size-7 object-contain" />
         </div>
-        <div className="hidden sm:block sm:col-span-3 min-w-0">
-          <p className="text-sm font-medium">{t.payment_method ?? "—"}</p>
-          <p className="text-xs text-muted-foreground truncate">{t.bank ?? "—"}</p>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm truncate flex items-center gap-1.5">
+            <KindIcon className={`size-3.5 ${isReceita ? "text-emerald-600" : "text-orange-500"}`} aria-hidden />
+            {t.category}
+          </p>
+          <p className="text-[11px] text-muted-foreground truncate">
+            {t.payment_method ?? "—"} · {dateLabel}
+          </p>
         </div>
-        <div className="hidden md:flex md:col-span-2 items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="size-3.5" />
-          <div>
-            <p className="text-foreground">{dateLabel}</p>
-            <p>{rel}</p>
-          </div>
-        </div>
-        <div className="hidden md:flex md:col-span-1 justify-center">
+        <div className="text-right">
+          <p className={`text-sm font-bold tabular-nums ${isReceita ? "text-emerald-700" : "text-orange-600"}`}>
+            {isReceita ? "" : "-"}{formatBRL(Number(t.amount))}
+          </p>
           <button type="button" onClick={onToggle}
-            className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-medium ${
+            className={`mt-0.5 inline-flex items-center h-5 px-2 rounded-full text-[10px] font-medium transition-colors ${
               isPago ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10"
                      : "bg-orange-50 text-orange-700 dark:bg-orange-500/10"
             }`}>
-            <span className={`size-1.5 rounded-full ${isPago ? "bg-emerald-500" : "bg-orange-500"}`} />
-            {isPago ? "Pago" : "Pendente"}
-          </button>
-        </div>
-        <div className="col-span-8 sm:col-span-2 text-right">
-          <p className={`text-lg font-bold ${isReceita ? "text-emerald-700" : "text-orange-600"}`}>
-            {isReceita ? "" : "-"}{formatBRL(Number(t.amount))}
-          </p>
-        </div>
-        <div className="col-span-4 sm:hidden text-right">
-          <button type="button" onClick={onToggle}
-            className={`inline-flex items-center gap-1.5 h-6 px-2 rounded-full text-[10px] font-medium ${
-              isPago ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"
-            }`}>
             {isPago ? "Pago" : "Pendente"}
           </button>
         </div>
       </div>
+    );
+  }
 
-      <button type="button" onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center size-8 rounded-full hover:bg-destructive/10 text-destructive">
-        <Trash2 className="size-4" />
-      </button>
-      <ChevronRight className="size-5 text-muted-foreground shrink-0" />
+  return (
+    <div className={wrapperCls}>
+      <div className="col-span-5 sm:col-span-4 flex items-center gap-3 min-w-0">
+        <div className="grid place-items-center size-10 shrink-0 rounded-full bg-muted/60 overflow-hidden ring-1 ring-border/40">
+          <img src={icon} alt="" className="size-7 object-contain" />
+        </div>
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate flex items-center gap-1.5">
+            <KindIcon className={`size-3.5 shrink-0 ${isReceita ? "text-emerald-600" : "text-orange-500"}`} aria-hidden />
+            <span className="truncate">{t.category}</span>
+          </p>
+          {t.description && <p className="text-[11px] text-muted-foreground truncate">{t.description}</p>}
+        </div>
+      </div>
+
+      <div className="hidden sm:block sm:col-span-3 min-w-0">
+        <p className="text-xs font-medium truncate">{t.payment_method ?? "—"}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{t.bank ?? "—"}</p>
+      </div>
+
+      <div className="hidden md:flex md:col-span-2 items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
+        <Calendar className="size-3.5 shrink-0" aria-hidden />
+        <div className="min-w-0">
+          <p className="text-foreground text-xs leading-tight">{dateLabel}</p>
+          <p className="leading-tight">{rel}</p>
+        </div>
+      </div>
+
+      <div className="hidden md:flex md:col-span-1 justify-center">
+        <button type="button" onClick={onToggle}
+          aria-label={`Marcar como ${isPago ? "pendente" : "pago"}`}
+          className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            isPago ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 hover:bg-emerald-100"
+                   : "bg-orange-50 text-orange-700 dark:bg-orange-500/10 hover:bg-orange-100"
+          }`}>
+          <span className={`size-1.5 rounded-full ${isPago ? "bg-emerald-500" : "bg-orange-500"}`} />
+          {isPago ? "Pago" : "Pendente"}
+        </button>
+      </div>
+
+      <div className="col-span-7 sm:col-span-2 flex items-center justify-end gap-1">
+        <p className={`text-sm font-bold tabular-nums ${isReceita ? "text-emerald-700" : "text-orange-600"}`}>
+          {isReceita ? "" : "-"}{formatBRL(Number(t.amount))}
+        </p>
+        <button type="button" onClick={onDelete}
+          aria-label="Remover lançamento"
+          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity grid place-items-center size-7 rounded-full hover:bg-destructive/10 text-destructive">
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
+
 
 function formatDateBR(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
