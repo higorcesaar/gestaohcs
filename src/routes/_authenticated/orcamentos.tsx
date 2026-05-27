@@ -26,7 +26,7 @@ import { useSetPageHeader } from "@/hooks/use-page-header";
 import { toast } from "sonner";
 import {
   Pencil, TrendingUp, AlertTriangle, CheckCircle2, Lightbulb,
-  Wallet, Plus, PiggyBank, Trash2,
+  Wallet, Plus, PiggyBank,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/orcamentos")({
@@ -132,9 +132,7 @@ function Orcamentos() {
   }, [prevTx]);
 
   const totalUsed = useMemo(() =>
-    catBudgets.reduce((acc, cb) => acc + (spentByCategory[cb.category] ?? 0), 0),
-    [catBudgets, spentByCategory]
-  );
+    Object.values(spentByCategory).reduce((a, b) => a + b, 0), [spentByCategory]);
   const totalPlanned = Number(budget.total_amount) || 0;
   const remaining = totalPlanned - totalUsed;
   const usedPct = totalPlanned > 0 ? Math.round((totalUsed / totalPlanned) * 100) : 0;
@@ -145,9 +143,10 @@ function Orcamentos() {
   // Resumo por grupo
   const groupSum = useMemo(() => {
     const m: Record<string, number> = { necessidade: 0, desejo: 0, poupanca: 0 };
-    catBudgets.forEach((cb) => {
-      const val = spentByCategory[cb.category] ?? 0;
-      m[cb.group_kind] += val;
+    Object.entries(spentByCategory).forEach(([cat, val]) => {
+      const cb = catBudgets.find((c) => c.category === cat);
+      const g = cb?.group_kind ?? DEFAULT_GROUP[cat] ?? "desejo";
+      m[g] += val;
     });
     return m;
   }, [spentByCategory, catBudgets]);
@@ -220,7 +219,6 @@ function Orcamentos() {
 
   async function deleteCatBudget(cat: string) {
     if (!user) return;
-    if (!window.confirm(`Deseja realmente remover a categoria "${cat}" do seu orçamento? Suas transações e lançamentos reais NÃO serão apagados.`)) return;
     await supabase.from("category_budgets").delete().eq("competence_month", monthIso).eq("category", cat);
     toast.success("Orçamento removido (transações mantidas)");
     load();
@@ -237,70 +235,6 @@ function Orcamentos() {
     setAddOpen(false);
   }
 
-  async function deleteAllCatBudgets() {
-    if (!user) return;
-    const { error } = await supabase.from("category_budgets").delete().eq("competence_month", monthIso);
-    if (error) return toast.error(error.message);
-    toast.success("Orçamento limpo (transações mantidas)");
-    load();
-  }
-
-  async function copyPreviousMonthBudget() {
-    if (!user) return;
-    const prevMonthDate = new Date(year, month - 1, 1);
-    const prevMonthIso = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
-
-    const { data: prevCats, error: fetchErr } = await supabase
-      .from("category_budgets")
-      .select("*")
-      .eq("competence_month", prevMonthIso);
-
-    if (fetchErr) return toast.error(fetchErr.message);
-    if (!prevCats || prevCats.length === 0) {
-      return toast.error("Nenhum orçamento encontrado no mês anterior.");
-    }
-
-    const inserts = prevCats.map((c) => ({
-      user_id: user.id,
-      competence_month: monthIso,
-      category: c.category,
-      planned_amount: c.planned_amount,
-      group_kind: c.group_kind as "necessidade" | "desejo" | "poupanca",
-    }));
-
-    const { error: insertErr } = await supabase
-      .from("category_budgets")
-      .upsert(inserts, { onConflict: "user_id,competence_month,category" });
-
-    if (insertErr) return toast.error(insertErr.message);
-    toast.success("Orçamento copiado do mês anterior!");
-    load();
-  }
-
-  async function importFromTransactions() {
-    if (!user) return;
-    const catsWithTx = Object.keys(spentByCategory);
-    if (catsWithTx.length === 0) {
-      return toast.error("Nenhuma transação encontrada no mês atual para importar.");
-    }
-
-    const inserts = catsWithTx.map((cat) => ({
-      user_id: user.id,
-      competence_month: monthIso,
-      category: cat,
-      planned_amount: 0,
-      group_kind: (DEFAULT_GROUP[cat] ?? "desejo") as "necessidade" | "desejo" | "poupanca",
-    }));
-
-    const { error: insertErr } = await supabase
-      .from("category_budgets")
-      .upsert(inserts, { onConflict: "user_id,competence_month,category" });
-
-    if (insertErr) return toast.error(insertErr.message);
-    toast.success("Categorias com transações importadas com sucesso!");
-    load();
-  }
-
   function statusBadge(pct: number) {
     if (pct >= 100) return <Badge variant="destructive">Ultrapassado</Badge>;
     if (pct >= 80) return <Badge className="bg-amber-500 text-white hover:bg-amber-500">Atenção</Badge>;
@@ -315,10 +249,11 @@ function Orcamentos() {
     return <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Dentro do limite</Badge>;
   }
 
-  // tabela: categorias planejadas no orçamento
+  // tabela: união de categorias do orçamento + categorias usadas
   const tableRows = useMemo(() => {
     const cats = new Set<string>();
     catBudgets.forEach((c) => cats.add(c.category));
+    Object.keys(spentByCategory).forEach((c) => cats.add(c));
     return Array.from(cats).map((category) => {
       const cb = catBudgets.find((c) => c.category === category);
       const planned = Number(cb?.planned_amount ?? 0);
@@ -329,10 +264,9 @@ function Orcamentos() {
     }).sort((a, b) => b.spent - a.spent);
   }, [catBudgets, spentByCategory]);
 
-  // Forecast (top 5 categorias com média alta que estão no orçamento)
+  // Forecast (top 5 categorias com média alta)
   const forecastRows = useMemo(() => {
     const all = Object.entries(avgPrevByCategory)
-      .filter(([category]) => catBudgets.some((c) => c.category === category))
       .map(([category, avg]) => {
         const cb = catBudgets.find((c) => c.category === category);
         return { category, avg, planned: Number(cb?.planned_amount ?? 0) };
@@ -422,46 +356,11 @@ function Orcamentos() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Tabela */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Orçamento por categorias</CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (catBudgets.length > 0 && !window.confirm("Isso irá mesclar as categorias do mês anterior com as atuais. Deseja continuar?")) return;
-                  copyPreviousMonthBudget();
-                }}
-                className="gap-2"
-              >
-                Copiar anterior
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (!window.confirm("Isso adicionará todas as categorias com transações deste mês ao seu orçamento com valor planejado R$ 0. Deseja continuar?")) return;
-                  importFromTransactions();
-                }}
-                className="gap-2"
-              >
-                Importar lançamentos
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  if (!window.confirm("Deseja realmente excluir todo o orçamento planejado para este mês? As transações e lançamentos reais NÃO serão afetados.")) return;
-                  deleteAllCatBudgets();
-                }}
-                className="gap-2"
-              >
-                Limpar tudo
-              </Button>
-              <Button size="sm" onClick={() => setAddOpen(true)} className="gap-2">
-                <Plus className="size-4" /> Adicionar categoria
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)} className="gap-2">
+              <Plus className="size-4" /> Adicionar categoria
+            </Button>
           </CardHeader>
           <CardContent>
             <Table>
@@ -771,9 +670,7 @@ function EditableBudgetRow({
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria">
                 <Pencil className="size-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">
-                <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
-              </Button>
+              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">×</Button>
             </>
           )}
         </div>
