@@ -601,7 +601,7 @@ function Kpi({ label, value, sub, accent }: { label: string; value: string; sub:
 
 type GroupKind = "necessidade" | "desejo" | "poupanca";
 type BudgetRow = {
-  category: string; planned: number; spent: number; pct: number; rest: number; group: GroupKind;
+  category: string; planned: number; spent: number; pct: number; rest: number; group: GroupKind; hasBudget: boolean;
 };
 
 function EditableBudgetRow({
