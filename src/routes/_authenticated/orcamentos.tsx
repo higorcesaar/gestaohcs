@@ -652,13 +652,19 @@ function EditableBudgetRow({
       <TableCell>
         <Input
           type="number"
+          min={0}
+          step="0.01"
           value={editing ? planned : undefined}
           defaultValue={editing ? undefined : row.planned}
           onChange={editing ? (e) => setPlanned(e.target.value) : undefined}
+          onKeyDown={editing ? undefined : (e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
           onBlur={editing ? undefined : (e) => {
             const v = Number(e.target.value);
             if (v !== row.planned) onSave({ category: row.category, planned_amount: v, group_kind: row.group });
           }}
+          placeholder="0,00"
           className="h-8 w-28"
         />
       </TableCell>
