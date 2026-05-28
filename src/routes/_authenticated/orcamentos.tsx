@@ -219,8 +219,14 @@ function Orcamentos() {
 
   async function deleteCatBudget(cat: string) {
     if (!user) return;
-    await supabase.from("category_budgets").delete().eq("competence_month", monthIso).eq("category", cat);
-    toast.success("Orçamento removido (transações mantidas)");
+    const ok = window.confirm(
+      `Remover "${cat}" do orçamento de ${monthLabel}?\n\nIsto apaga apenas a linha do orçamento desta aba. Suas transações, parcelamentos, cartões e categorias globais permanecem intactos.`
+    );
+    if (!ok) return;
+    const { error } = await supabase.from("category_budgets")
+      .delete().eq("competence_month", monthIso).eq("category", cat).eq("user_id", user.id);
+    if (error) return toast.error(error.message);
+    toast.success("Categoria removida do orçamento");
     load();
   }
 
