@@ -675,13 +675,25 @@ function EditableBudgetRow({
               <Button size="sm" variant="default" onClick={commit}>Salvar</Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
             </>
-          ) : (
+          ) : row.hasBudget ? (
             <>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria">
+              <Button size="icon" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria do orçamento">
                 <Pencil className="size-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">×</Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onDelete}
+                title="Remover do orçamento (transações são mantidas)"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="size-4" />
+              </Button>
             </>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)} className="gap-1.5">
+              <Plus className="size-3.5" /> Adicionar ao orçamento
+            </Button>
           )}
         </div>
       </TableCell>
