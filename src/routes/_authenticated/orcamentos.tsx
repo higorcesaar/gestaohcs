@@ -115,7 +115,7 @@ function Orcamentos() {
     supabase.from("monthly_budgets").select("*").eq("competence_month", monthIso).maybeSingle()
       .then(({ data }) => setBudget(data ?? { total_amount: 0, tip_text: null }));
 
-    supabase.from("category_budgets").select("*").eq("competence_month", monthIso)
+    supabase.from("category_budgets").select("*").eq("competence_month", "2000-01-01")
       .then(({ data }) => setCatBudgets((data ?? []) as CategoryBudget[]));
 
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
@@ -196,7 +196,7 @@ function Orcamentos() {
   async function saveCatBudget(cat: CategoryBudget) {
     if (!user) return;
     const { error } = await supabase.from("category_budgets").upsert({
-      user_id: user.id, competence_month: monthIso,
+      user_id: user.id, competence_month: "2000-01-01",
       category: cat.category, planned_amount: cat.planned_amount, group_kind: cat.group_kind,
     }, { onConflict: "user_id,competence_month,category" });
     if (error) return toast.error(error.message);
@@ -214,12 +214,12 @@ function Orcamentos() {
     const exists = catBudgets.find((c) => c.category.toLowerCase() === newName.toLowerCase());
     if (exists) return toast.error("Já existe um orçamento com esse nome");
     const { error: insErr } = await supabase.from("category_budgets").upsert({
-      user_id: user.id, competence_month: monthIso,
+      user_id: user.id, competence_month: "2000-01-01",
       category: newName, planned_amount: next.planned_amount, group_kind: next.group_kind,
     }, { onConflict: "user_id,competence_month,category" });
     if (insErr) return toast.error(insErr.message);
     const { error: delErr } = await supabase.from("category_budgets")
-      .delete().eq("competence_month", monthIso).eq("category", oldCat);
+      .delete().eq("competence_month", "2000-01-01").eq("category", oldCat);
     if (delErr) return toast.error(delErr.message);
     toast.success("Categoria renomeada (parcelamentos preservados)");
     load();
@@ -228,11 +228,11 @@ function Orcamentos() {
   async function deleteCatBudget(cat: string) {
     if (!user) return;
     const ok = window.confirm(
-      `Remover "${cat}" do orçamento de ${monthLabel}?\n\nIsto apaga apenas a linha do orçamento desta aba. Suas transações, parcelamentos, cartões e categorias globais permanecem intactos.`
+      `Remover "${cat}" do orçamento?\n\nIsto apaga apenas a linha do orçamento desta aba. Suas transações, parcelamentos, cartões e categorias globais permanecem intactos.`
     );
     if (!ok) return;
     const { error } = await supabase.from("category_budgets")
-      .delete().eq("competence_month", monthIso).eq("category", cat).eq("user_id", user.id);
+      .delete().eq("competence_month", "2000-01-01").eq("category", cat).eq("user_id", user.id);
     if (error) return toast.error(error.message);
     toast.success("Categoria removida do orçamento");
     load();
