@@ -26,7 +26,7 @@ import { useSetPageHeader } from "@/hooks/use-page-header";
 import { toast } from "sonner";
 import {
   Pencil, TrendingUp, AlertTriangle, CheckCircle2, Lightbulb,
-  Wallet, Plus, PiggyBank, Trash2,
+  Wallet, Plus, PiggyBank, Trash2, X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/orcamentos")({
