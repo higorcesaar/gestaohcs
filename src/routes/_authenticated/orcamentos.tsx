@@ -687,7 +687,7 @@ function EditableBudgetRow({
                 title="Remover do orçamento (transações são mantidas)"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
-                <Trash2 className="size-4" />
+                <X className="size-4" />
               </Button>
             </>
           ) : (
