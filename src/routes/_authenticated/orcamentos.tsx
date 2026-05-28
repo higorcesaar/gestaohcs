@@ -241,9 +241,10 @@ function Orcamentos() {
     setAddOpen(false);
   }
 
-  function statusBadge(pct: number) {
-    if (pct >= 100) return <Badge variant="destructive">Ultrapassado</Badge>;
-    if (pct >= 80) return <Badge className="bg-amber-500 text-white hover:bg-amber-500">Atenção</Badge>;
+  function statusBadge(pct: number, planned: number) {
+    if (planned <= 0) return <Badge variant="outline">Sem orçamento</Badge>;
+    if (pct >= 100) return <Badge variant="destructive">Estourado</Badge>;
+    if (pct >= 80) return <Badge className="bg-amber-500 text-white hover:bg-amber-500">Alerta</Badge>;
     return <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Normal</Badge>;
   }
 
@@ -610,7 +611,7 @@ function EditableBudgetRow({
   row: BudgetRow;
   onSave: (next: { category: string; planned_amount: number; group_kind: GroupKind }) => void;
   onDelete: () => void;
-  statusBadge: (pct: number) => React.ReactElement;
+  statusBadge: (pct: number, planned: number) => React.ReactElement;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(row.category);
@@ -651,13 +652,19 @@ function EditableBudgetRow({
       <TableCell>
         <Input
           type="number"
+          min={0}
+          step="0.01"
           value={editing ? planned : undefined}
           defaultValue={editing ? undefined : row.planned}
           onChange={editing ? (e) => setPlanned(e.target.value) : undefined}
+          onKeyDown={editing ? undefined : (e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
           onBlur={editing ? undefined : (e) => {
             const v = Number(e.target.value);
             if (v !== row.planned) onSave({ category: row.category, planned_amount: v, group_kind: row.group });
           }}
+          placeholder="0,00"
           className="h-8 w-28"
         />
       </TableCell>
@@ -667,7 +674,7 @@ function EditableBudgetRow({
       </TableCell>
       <TableCell>{row.pct}%</TableCell>
       <TableCell className={row.rest < 0 ? "text-destructive font-medium" : ""}>{formatBRL(row.rest)}</TableCell>
-      <TableCell>{statusBadge(row.pct)}</TableCell>
+      <TableCell>{statusBadge(row.pct, row.planned)}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1 justify-end">
           {editing ? (
