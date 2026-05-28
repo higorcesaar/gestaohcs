@@ -266,7 +266,11 @@ function Orcamentos() {
       const spent = spentByCategory[category] ?? 0;
       const pct = planned > 0 ? Math.round((spent / planned) * 100) : 0;
       const rest = planned - spent;
-      return { category, planned, spent, pct, rest, group: cb?.group_kind ?? DEFAULT_GROUP[category] ?? "desejo" };
+      return {
+        category, planned, spent, pct, rest,
+        group: cb?.group_kind ?? DEFAULT_GROUP[category] ?? "desejo",
+        hasBudget: !!cb,
+      };
     }).sort((a, b) => b.spent - a.spent);
   }, [catBudgets, spentByCategory]);
 
