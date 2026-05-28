@@ -241,9 +241,10 @@ function Orcamentos() {
     setAddOpen(false);
   }
 
-  function statusBadge(pct: number) {
-    if (pct >= 100) return <Badge variant="destructive">Ultrapassado</Badge>;
-    if (pct >= 80) return <Badge className="bg-amber-500 text-white hover:bg-amber-500">Atenção</Badge>;
+  function statusBadge(pct: number, planned: number) {
+    if (planned <= 0) return <Badge variant="outline">Sem orçamento</Badge>;
+    if (pct >= 100) return <Badge variant="destructive">Estourado</Badge>;
+    if (pct >= 80) return <Badge className="bg-amber-500 text-white hover:bg-amber-500">Alerta</Badge>;
     return <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Normal</Badge>;
   }
 
