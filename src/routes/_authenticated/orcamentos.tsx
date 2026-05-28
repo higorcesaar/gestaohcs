@@ -26,7 +26,7 @@ import { useSetPageHeader } from "@/hooks/use-page-header";
 import { toast } from "sonner";
 import {
   Pencil, TrendingUp, AlertTriangle, CheckCircle2, Lightbulb,
-  Wallet, Plus, PiggyBank,
+  Wallet, Plus, PiggyBank, Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/orcamentos")({
@@ -219,8 +219,14 @@ function Orcamentos() {
 
   async function deleteCatBudget(cat: string) {
     if (!user) return;
-    await supabase.from("category_budgets").delete().eq("competence_month", monthIso).eq("category", cat);
-    toast.success("Orçamento removido (transações mantidas)");
+    const ok = window.confirm(
+      `Remover "${cat}" do orçamento de ${monthLabel}?\n\nIsto apaga apenas a linha do orçamento desta aba. Suas transações, parcelamentos, cartões e categorias globais permanecem intactos.`
+    );
+    if (!ok) return;
+    const { error } = await supabase.from("category_budgets")
+      .delete().eq("competence_month", monthIso).eq("category", cat).eq("user_id", user.id);
+    if (error) return toast.error(error.message);
+    toast.success("Categoria removida do orçamento");
     load();
   }
 
@@ -260,7 +266,11 @@ function Orcamentos() {
       const spent = spentByCategory[category] ?? 0;
       const pct = planned > 0 ? Math.round((spent / planned) * 100) : 0;
       const rest = planned - spent;
-      return { category, planned, spent, pct, rest, group: cb?.group_kind ?? DEFAULT_GROUP[category] ?? "desejo" };
+      return {
+        category, planned, spent, pct, rest,
+        group: cb?.group_kind ?? DEFAULT_GROUP[category] ?? "desejo",
+        hasBudget: !!cb,
+      };
     }).sort((a, b) => b.spent - a.spent);
   }, [catBudgets, spentByCategory]);
 
@@ -591,7 +601,7 @@ function Kpi({ label, value, sub, accent }: { label: string; value: string; sub:
 
 type GroupKind = "necessidade" | "desejo" | "poupanca";
 type BudgetRow = {
-  category: string; planned: number; spent: number; pct: number; rest: number; group: GroupKind;
+  category: string; planned: number; spent: number; pct: number; rest: number; group: GroupKind; hasBudget: boolean;
 };
 
 function EditableBudgetRow({
@@ -665,13 +675,25 @@ function EditableBudgetRow({
               <Button size="sm" variant="default" onClick={commit}>Salvar</Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
             </>
-          ) : (
+          ) : row.hasBudget ? (
             <>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria">
+              <Button size="icon" variant="ghost" onClick={() => setEditing(true)} title="Editar categoria do orçamento">
                 <Pencil className="size-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={onDelete} title="Remover do orçamento (transações são mantidas)">×</Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onDelete}
+                title="Remover do orçamento (transações são mantidas)"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="size-4" />
+              </Button>
             </>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)} className="gap-1.5">
+              <Plus className="size-3.5" /> Adicionar ao orçamento
+            </Button>
           )}
         </div>
       </TableCell>
