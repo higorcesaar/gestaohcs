@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTitular, applyTitular } from "@/hooks/use-titular";
 import { MonthSelector } from "./relatorios";
 import { useSetPageHeader } from "@/hooks/use-page-header";
+import { useCategories } from "@/hooks/use-categories";
 import { toast } from "sonner";
 import {
   Pencil, TrendingUp, AlertTriangle, CheckCircle2, Lightbulb,
@@ -63,6 +64,7 @@ const DEFAULT_GROUP: Record<string, "necessidade" | "desejo" | "poupanca"> = {
 function Orcamentos() {
   const { user } = useAuth();
   const { titular } = useTitular();
+  const { list: allCategories } = useCategories();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -83,6 +85,12 @@ function Orcamentos() {
   const today = now.getDate();
   const isCurrent = year === now.getFullYear() && month === now.getMonth();
   const daysElapsed = isCurrent ? today : daysInMonth;
+
+  const availableCategories = useMemo(() => {
+    return allCategories
+      .filter((c) => c.kind !== "receita")
+      .filter((c) => !catBudgets.some((cb) => cb.category.toLowerCase() === c.name.toLowerCase()));
+  }, [allCategories, catBudgets]);
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [year, month, titular, user?.id]);
 
@@ -140,12 +148,12 @@ function Orcamentos() {
   const projected = isCurrent ? dailyAvg * daysInMonth : totalUsed;
   const projectedPct = totalPlanned > 0 ? Math.round((projected / totalPlanned) * 100) : 0;
 
-  // Resumo por grupo
+  // Resumo por grupo (apenas categorias monitoradas)
   const groupSum = useMemo(() => {
     const m: Record<string, number> = { necessidade: 0, desejo: 0, poupanca: 0 };
-    Object.entries(spentByCategory).forEach(([cat, val]) => {
-      const cb = catBudgets.find((c) => c.category === cat);
-      const g = cb?.group_kind ?? DEFAULT_GROUP[cat] ?? "desejo";
+    catBudgets.forEach((cb) => {
+      const val = spentByCategory[cb.category] ?? 0;
+      const g = cb.group_kind ?? DEFAULT_GROUP[cb.category] ?? "desejo";
       m[g] += val;
     });
     return m;
@@ -256,31 +264,34 @@ function Orcamentos() {
     return <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">Dentro do limite</Badge>;
   }
 
-  // tabela: união de categorias do orçamento + categorias usadas
+  // tabela: categorias com orçamento ativamente monitoradas
   const tableRows = useMemo(() => {
-    const cats = new Set<string>();
-    catBudgets.forEach((c) => cats.add(c.category));
-    Object.keys(spentByCategory).forEach((c) => cats.add(c));
-    return Array.from(cats).map((category) => {
-      const cb = catBudgets.find((c) => c.category === category);
-      const planned = Number(cb?.planned_amount ?? 0);
+    return catBudgets.map((cb) => {
+      const category = cb.category;
+      const planned = Number(cb.planned_amount ?? 0);
       const spent = spentByCategory[category] ?? 0;
       const pct = planned > 0 ? Math.round((spent / planned) * 100) : 0;
       const rest = planned - spent;
       return {
         category, planned, spent, pct, rest,
-        group: cb?.group_kind ?? DEFAULT_GROUP[category] ?? "desejo",
-        hasBudget: !!cb,
+        group: cb.group_kind ?? DEFAULT_GROUP[category] ?? "desejo",
+        hasBudget: true,
       };
     }).sort((a, b) => b.spent - a.spent);
   }, [catBudgets, spentByCategory]);
 
-  // Forecast (top 5 categorias com média alta)
+  const tableTotalPlanned = useMemo(() => tableRows.reduce((acc, r) => acc + r.planned, 0), [tableRows]);
+  const tableTotalSpent = useMemo(() => tableRows.reduce((acc, r) => acc + r.spent, 0), [tableRows]);
+  const tableTotalPct = tableTotalPlanned > 0 ? Math.round((tableTotalSpent / tableTotalPlanned) * 100) : 0;
+  const tableTotalRemaining = tableTotalPlanned - tableTotalSpent;
+
+  // Forecast (apenas categorias monitoradas)
   const forecastRows = useMemo(() => {
     const all = Object.entries(avgPrevByCategory)
+      .filter(([category]) => catBudgets.some((c) => c.category === category))
       .map(([category, avg]) => {
-        const cb = catBudgets.find((c) => c.category === category);
-        return { category, avg, planned: Number(cb?.planned_amount ?? 0) };
+        const cb = catBudgets.find((c) => c.category === category)!;
+        return { category, avg, planned: Number(cb.planned_amount ?? 0) };
       })
       .sort((a, b) => b.avg - a.avg)
       .slice(0, 6);
@@ -405,11 +416,11 @@ function Orcamentos() {
                 {tableRows.length > 0 && (
                   <TableRow className="font-semibold bg-muted/30">
                     <TableCell>Total</TableCell>
-                    <TableCell>{formatBRL(totalPlanned)}</TableCell>
-                    <TableCell>{formatBRL(totalUsed)}</TableCell>
+                    <TableCell>{formatBRL(tableTotalPlanned)}</TableCell>
+                    <TableCell>{formatBRL(tableTotalSpent)}</TableCell>
                     <TableCell />
-                    <TableCell>{usedPct}%</TableCell>
-                    <TableCell>{formatBRL(remaining)}</TableCell>
+                    <TableCell>{tableTotalPct}%</TableCell>
+                    <TableCell className={tableTotalRemaining < 0 ? "text-destructive" : ""}>{formatBRL(tableTotalRemaining)}</TableCell>
                     <TableCell colSpan={2} />
                   </TableRow>
                 )}
@@ -567,19 +578,59 @@ function Orcamentos() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Adicionar categoria ao orçamento</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <Input placeholder="Categoria" value={newCat.category} onChange={(e) => setNewCat((p) => ({ ...p, category: e.target.value }))} />
-            <Input placeholder="Valor planejado" type="number" value={newCat.planned_amount} onChange={(e) => setNewCat((p) => ({ ...p, planned_amount: e.target.value }))} />
-            <Select value={newCat.group_kind} onValueChange={(v) => setNewCat((p) => ({ ...p, group_kind: v as never }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="necessidade">Necessidade</SelectItem>
-                <SelectItem value="desejo">Desejo</SelectItem>
-                <SelectItem value="poupanca">Poupança</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground/80">Categoria</label>
+              <Select
+                value={newCat.category}
+                onValueChange={(v) => {
+                  const inferredGroup = DEFAULT_GROUP[v] ?? "desejo";
+                  setNewCat((p) => ({ ...p, category: v, group_kind: inferredGroup }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria existente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCategories.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground text-center">Nenhuma categoria disponível</div>
+                  ) : (
+                    availableCategories.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>
+                        {c.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground/80">Valor planejado (R$)</label>
+              <Input
+                placeholder="0,00"
+                type="number"
+                value={newCat.planned_amount}
+                onChange={(e) => setNewCat((p) => ({ ...p, planned_amount: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground/80">Grupo</label>
+              <Select
+                value={newCat.group_kind}
+                onValueChange={(v) => setNewCat((p) => ({ ...p, group_kind: v as never }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="necessidade">Necessidade</SelectItem>
+                  <SelectItem value="desejo">Desejo</SelectItem>
+                  <SelectItem value="poupanca">Poupança</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <DialogFooter><Button onClick={addNewCat}>Adicionar</Button></DialogFooter>
+          <DialogFooter><Button onClick={addNewCat} disabled={!newCat.category}>Adicionar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -691,10 +742,10 @@ function EditableBudgetRow({
                 size="icon"
                 variant="ghost"
                 onClick={onDelete}
-                title="Remover do orçamento (transações são mantidas)"
+                title="Remover do orçamento"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
               >
-                <X className="size-4" />
+                <Trash2 className="size-4" />
               </Button>
             </>
           ) : (
