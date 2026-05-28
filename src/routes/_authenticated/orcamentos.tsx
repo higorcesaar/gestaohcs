@@ -668,7 +668,7 @@ function EditableBudgetRow({
       </TableCell>
       <TableCell>{row.pct}%</TableCell>
       <TableCell className={row.rest < 0 ? "text-destructive font-medium" : ""}>{formatBRL(row.rest)}</TableCell>
-      <TableCell>{statusBadge(row.pct)}</TableCell>
+      <TableCell>{statusBadge(row.pct, row.planned)}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1 justify-end">
           {editing ? (
