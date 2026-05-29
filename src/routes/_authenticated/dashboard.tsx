@@ -187,14 +187,15 @@ function Dashboard() {
   const variaveis = sum("variavel");
   const parcelas = sum("parcelamento");
 
-  // Saldo = Receitas - tudo que já foi pago (todas as categorias exceto receita)
+  // Saldo acumulado = todas as receitas até o fim do mês − tudo pago até o fim do mês.
+  // Assim o valor permanece quando o mês vira sem novos lançamentos.
   const totalPago = tx
     .filter((t) => t.kind !== "receita" && t.status === "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalPendente = tx
     .filter((t) => t.kind !== "receita" && t.status !== "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const saldoConta = receitas - totalPago;
+  const saldoConta = cumulative.receitas - cumulative.pagos;
 
   async function refresh() {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
