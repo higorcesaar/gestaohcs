@@ -110,21 +110,17 @@ function Dashboard() {
     supabase.from("cards").select("id, name, bank, titular, closing_day, due_day, credit_limit").then(({ data }) => setCards((data ?? []) as CardRow[]));
     supabase.from("accounts").select("id, name, bank, type, balance, titular").then(({ data }) => setAccounts((data ?? []) as Account[]));
 
-    // Saldo em caixa = receitas acumuladas − débitos que já saíram da conta.
-    // "Débito" = qualquer despesa que não seja cartão de crédito (débito, pix, dinheiro, boleto…)
-    // sai na hora; crédito só reduz o caixa quando a fatura é marcada como paga.
+    // Saldo acumulado: tudo do início dos tempos até o fim do mês selecionado (inclusive).
     let qc = supabase.from("transactions")
-      .select("kind, amount, status, payment_method")
+      .select("kind, amount, status")
       .lt("competence_month", endNext);
     qc = applyTitular(qc, titular);
     qc.then(({ data }) => {
       let r = 0, p = 0;
-      (data ?? []).forEach((t: { kind: string; amount: number | string; status: string; payment_method: string | null }) => {
+      (data ?? []).forEach((t: { kind: string; amount: number | string; status: string }) => {
         const v = Number(t.amount);
-        if (t.kind === "receita") { r += v; return; }
-        const isCredito = t.payment_method === "Crédito";
-        if (!isCredito) p += v; // débito/pix/dinheiro saem imediatamente
-        else if (t.status === "pago") p += v; // crédito só quando fatura paga
+        if (t.kind === "receita") r += v;
+        else if (t.status === "pago") p += v;
       });
       setCumulative({ receitas: r, pagos: p });
     });
