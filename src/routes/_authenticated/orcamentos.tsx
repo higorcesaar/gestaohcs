@@ -77,7 +77,7 @@ function Orcamentos() {
   const [tipOpen, setTipOpen] = useState(false);
   const [tipDraft, setTipDraft] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [newCat, setNewCat] = useState({ category: "", planned_amount: "", group_kind: "necessidade" as const });
+  const [newCat, setNewCat] = useState<{ category: string; planned_amount: string; group_kind: "necessidade" | "desejo" | "poupanca" }>({ category: "", planned_amount: "", group_kind: "necessidade" });
 
   const monthIso = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const monthLabel = new Date(year, month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });

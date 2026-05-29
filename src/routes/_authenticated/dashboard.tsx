@@ -57,6 +57,7 @@ function Dashboard() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cumulative, setCumulative] = useState<{ receitas: number; pagos: number }>({ receitas: 0, pagos: 0 });
   const [detailKind, setDetailKind] = useState<string | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const [defaultApplied, setDefaultApplied] = useState(false);
@@ -108,6 +109,21 @@ function Dashboard() {
     supabase.from("goals").select("*").then(({ data }) => setGoals((data ?? []) as Goal[]));
     supabase.from("cards").select("id, name, bank, titular, closing_day, due_day, credit_limit").then(({ data }) => setCards((data ?? []) as CardRow[]));
     supabase.from("accounts").select("id, name, bank, type, balance, titular").then(({ data }) => setAccounts((data ?? []) as Account[]));
+
+    // Saldo acumulado: tudo do início dos tempos até o fim do mês selecionado (inclusive).
+    let qc = supabase.from("transactions")
+      .select("kind, amount, status")
+      .lt("competence_month", endNext);
+    qc = applyTitular(qc, titular);
+    qc.then(({ data }) => {
+      let r = 0, p = 0;
+      (data ?? []).forEach((t: { kind: string; amount: number | string; status: string }) => {
+        const v = Number(t.amount);
+        if (t.kind === "receita") r += v;
+        else if (t.status === "pago") p += v;
+      });
+      setCumulative({ receitas: r, pagos: p });
+    });
   }, [year, month, titular]);
 
   const visibleAccounts = useMemo(
@@ -171,14 +187,15 @@ function Dashboard() {
   const variaveis = sum("variavel");
   const parcelas = sum("parcelamento");
 
-  // Saldo = Receitas - tudo que já foi pago (todas as categorias exceto receita)
+  // Saldo acumulado = todas as receitas até o fim do mês − tudo pago até o fim do mês.
+  // Assim o valor permanece quando o mês vira sem novos lançamentos.
   const totalPago = tx
     .filter((t) => t.kind !== "receita" && t.status === "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalPendente = tx
     .filter((t) => t.kind !== "receita" && t.status !== "pago")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const saldoConta = receitas - totalPago;
+  const saldoConta = cumulative.receitas - cumulative.pagos;
 
   async function refresh() {
     const start = new Date(year, month, 1).toISOString().slice(0, 10);
