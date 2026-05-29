@@ -57,6 +57,7 @@ function Dashboard() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [cumulative, setCumulative] = useState<{ receitas: number; pagos: number }>({ receitas: 0, pagos: 0 });
   const [detailKind, setDetailKind] = useState<string | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const [defaultApplied, setDefaultApplied] = useState(false);
