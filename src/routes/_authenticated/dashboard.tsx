@@ -675,26 +675,39 @@ function Dashboard() {
               const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
               const disponivel = Math.max(0, limit - used);
               return (
-                <button key={c.card.id} onClick={() => setDetailCardId(c.card.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40">
-                  <div className="size-9 rounded-lg grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: brand.gradient }}>
-                    {bankShort(c.card.bank)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium truncate">{c.card.bank} - {c.card.titular ?? c.card.name}</span>
-                      <span className="font-semibold">{formatBRL(c.total)}</span>
+                <div key={c.card.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40">
+                  <button onClick={() => setDetailCardId(c.card.id)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                    <div className="size-9 rounded-lg grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: brand.gradient }}>
+                      {bankShort(c.card.bank)}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {limit > 0
-                        ? <>Limite: {formatBRL(limit)} · Usado: {formatBRL(used)} · Disp: {formatBRL(disponivel)}</>
-                        : <>Sem limite cadastrado · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium truncate">{c.card.bank} - {c.card.titular ?? c.card.name}</span>
+                        <span className="font-semibold">{formatBRL(c.total)}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {limit > 0
+                          ? <>Limite: {formatBRL(limit)} · Usado: {formatBRL(used)} · Disp: {formatBRL(disponivel)}</>
+                          : <>Sem limite cadastrado · Venc: {String(c.card.due_day).padStart(2, "0")}/{String(month + 1).padStart(2, "0")}</>}
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 80 ? "oklch(0.62 0.18 25)" : "oklch(0.6 0.12 150)" }} />
+                      </div>
+                      <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado · fatura atual ${formatBRL(c.total)}` : "—"}</div>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 80 ? "oklch(0.62 0.18 25)" : "oklch(0.6 0.12 150)" }} />
-                    </div>
-                    <div className="text-[10px] text-right text-muted-foreground mt-0.5">{limit > 0 ? `${pct}% utilizado · fatura atual ${formatBRL(c.total)}` : "—"}</div>
-                  </div>
-                </button>
+                  </button>
+                  {c.items.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant={c.allPaid ? "default" : "outline"}
+                      className={`h-7 text-[10px] shrink-0 ${c.allPaid ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/30"}`}
+                      onClick={(e) => { e.stopPropagation(); toggleCardStatus(c.card.id, c.allPaid ? "pendente" : "pago"); }}
+                      title={c.allPaid ? "Clique para reabrir a fatura" : "Clique para confirmar pagamento"}
+                    >
+                      {c.allPaid ? <><CheckCircle2 className="size-3 mr-1" />Pago</> : <><Circle className="size-3 mr-1" />Pendente</>}
+                    </Button>
+                  )}
+                </div>
               );
             })}
             {cardTotals.length > 0 && (
